@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' http://127.0.0.1:8787;
+                 style-src 'self' 'unsafe-inline';
+                 img-src 'self' data:;
+                 connect-src 'self' http://127.0.0.1:8787;">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AURORA Local Agent MVP</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 0; background: #0b0f17; color: #e7eefc; }
+    header { padding: 14px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .badge { font-size: 12px; opacity: .75; }
+    .wrap { display:grid; grid-template-columns: 360px 1fr; height: calc(100vh - 52px); }
+    .panel { border-right: 1px solid rgba(255,255,255,.08); padding: 14px; overflow:auto; }
+    .main { padding: 14px; display:flex; flex-direction:column; gap:10px; }
+    .card { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 12px; }
+    label { display:block; font-size: 12px; opacity: .85; margin-bottom: 6px; }
+    input, textarea { width:100%; box-sizing:border-box; border-radius: 10px; border:1px solid rgba(255,255,255,.14); background: rgba(0,0,0,.25); color:#e7eefc; padding: 10px; outline:none; }
+    textarea { min-height: 90px; resize: vertical; }
+    button { cursor:pointer; border-radius: 12px; border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.08); color:#e7eefc; padding: 10px 12px; }
+    button:hover { background: rgba(255,255,255,.12); }
+    .chatlog { flex:1; overflow:auto; display:flex; flex-direction:column; gap:10px; }
+    .bubble { padding: 10px 12px; border-radius: 14px; border:1px solid rgba(255,255,255,.10); white-space: pre-wrap; }
+    .u { background: rgba(80,120,255,.12); align-self:flex-end; max-width: 76%; }
+    .a { background: rgba(255,255,255,.06); align-self:flex-start; max-width: 76%; }
+    .muted { opacity:.75; font-size:12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <div style="font-weight:700;">AURORA Local Agent MVP</div>
+      <div class="badge">Local-only • Backend: 127.0.0.1:8787 • Version <span id="ver"></span></div>
+    </div>
+    <div class="badge">提示：先启动 backend，再打开聊天。</div>
+  </header>
+
+  <div class="wrap">
+    <aside class="panel">
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:8px;">Settings</div>
+        <div class="muted" style="margin-bottom:10px;">填入 OpenAI-compatible 的 base_url / api_key / model（只存本地）。</div>
+
+        <label>Base URL (e.g. https://api.openai.com)</label>
+        <input id="base_url" placeholder="https://api.openai.com" />
+
+        <label style="margin-top:10px;">API Key</label>
+        <input id="api_key" placeholder="sk-..." />
+
+        <label style="margin-top:10px;">Model</label>
+        <input id="model" placeholder="gpt-4.1-mini (example)" />
+
+        <div style="display:flex; gap:10px; margin-top:12px;">
+          <button id="save">Save</button>
+          <button id="health">Health</button>
+        </div>
+        <div id="status" class="muted" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px;">
+        <div style="font-weight:700; margin-bottom:8px;">Cost Controls</div>
+        <div class="muted">输出长度硬限制：Chat≈220 tokens，Task≈400 tokens；上下文预算≈2200 tokens（字符近似）。</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="chatlog" id="chatlog"></div>
+
+      <div class="card">
+        <label>Message</label>
+        <textarea id="msg" placeholder="跟我说点什么…（先启动 backend）"></textarea>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+          <button id="send">Send</button>
+          <button id="clear">Clear</button>
+        </div>
+        <div id="meta" class="muted" style="margin-top:10px;"></div>
+      </div>
+    </main>
+  </div>
+
+<script>
+  document.getElementById("ver").textContent = (window.aurora && window.aurora.version) ? window.aurora.version : "0.1.0";
+  const chatlog = document.getElementById("chatlog");
+  const status = document.getElementById("status");
+  const meta = document.getElementById("meta");
+
+  function addBubble(text, who) {
+    const div = document.createElement("div");
+    div.className = "bubble " + (who === "user" ? "u" : "a");
+    div.textContent = text;
+    chatlog.appendChild(div);
+    chatlog.scrollTop = chatlog.scrollHeight;
+  }
+
+  async function api(path, method="GET", body=null) {
+    const url = "http://127.0.0.1:8787" + path;
+    const opt = { method, headers: { "Content-Type": "application/json" } };
+    if (body) opt.body = JSON.stringify(body);
+    const res = await fetch(url, opt);
+    if (!res.ok) throw new Error(await res.text());
+    return await res.json();
+  }
+
+  async function loadSettings() {
+    try {
+      const s = await api("/settings");
+      document.getElementById("base_url").value = s.base_url || "";
+      document.getElementById("api_key").value = "";
+      document.getElementById("model").value = s.model || "";
+      status.textContent = "Loaded settings (api_key hidden).";
+    } catch (e) {
+      status.textContent = "Backend not reachable. Start backend first.";
+    }
+  }
+
+  document.getElementById("save").onclick = async () => {
+    try {
+      const base_url = document.getElementById("base_url").value.trim();
+      const api_key = document.getElementById("api_key").value.trim();
+      const model = document.getElementById("model").value.trim();
+      await api("/settings", "POST", { base_url, api_key, model, provider: "openai_compatible" });
+      status.textContent = "Saved.";
+    } catch (e) {
+      status.textContent = "Save failed: " + e.message;
+    }
+  };
+
+  document.getElementById("health").onclick = async () => {
+    try {
+      await api("/health");
+      status.textContent = "Health: ok";
+    } catch (e) {
+      status.textContent = "Health failed: " + e.message;
+    }
+  };
+
+  document.getElementById("send").onclick = async () => {
+    const msg = document.getElementById("msg").value.trim();
+    if (!msg) return;
+    document.getElementById("msg").value = "";
+    addBubble(msg, "user");
+    try {
+      const out = await api("/chat", "POST", { user_message: msg, session_id: "default" });
+      addBubble(out.assistant_message, "assistant");
+      meta.textContent = `mode=${out.mode} • memory_cards=${out.used_memory_cards.length}`;
+    } catch (e) {
+      addBubble("Backend error: " + e.message, "assistant");
+    }
+  };
+
+  document.getElementById("clear").onclick = () => {
+    chatlog.innerHTML = "";
+    meta.textContent = "";
+  };
+
+  loadSettings();
+</script>
+</body>
+</html>
