@@ -48,6 +48,9 @@ class SettingsReq(BaseModel):
     api_key: str
     model: str
 
+class ModelUpdateReq(BaseModel):
+    model: str
+
 @app.get("/health")
 def health():
     print("[HEALTH] Health check requested", flush=True)
@@ -70,6 +73,16 @@ def set_settings(req: SettingsReq):
     print("[SETTINGS] Settings saved successfully", flush=True)
     return {"ok": True}
 
+@app.post("/settings/model")
+def update_model_only(req: ModelUpdateReq):
+    print(f"[SETTINGS] Updating model only: {req.model}", flush=True)
+    logger.info(f"Model updated to: {req.model}")
+    current = settings.get()
+    current["model"] = req.model
+    settings.set(current)
+    print("[SETTINGS] Model updated successfully", flush=True)
+    return {"ok": True, "model": req.model}
+
 @app.post("/chat", response_model=ChatResp)
 def chat(req: ChatReq):
     print(f"\n>>> [CHAT] Request: {req.user_message[:50]}...", flush=True)
@@ -78,6 +91,17 @@ def chat(req: ChatReq):
     print(f"<<< [CHAT] Response ({out['mode']}): {out['assistant_message'][:100]}...\n", flush=True)
     logger.info(f"Chat response mode: {out['mode']}, memory_cards: {len(out['used_memory_cards'])}")
     return ChatResp(**out)
+
+class ClearHistoryReq(BaseModel):
+    session_id: str = "default"
+
+@app.post("/clear-history")
+def clear_history(req: ClearHistoryReq):
+    """清空指定会话的对话历史"""
+    print(f"[CLEAR] Clearing history for session: {req.session_id}", flush=True)
+    logger.info(f"Clearing history for session: {req.session_id}")
+    agent.clear_history(req.session_id)
+    return {"ok": True, "session_id": req.session_id}
 
 @app.post("/echo")
 def echo(req: ChatReq):

@@ -52,16 +52,39 @@
           <label>Base URL (e.g. https://api.openai.com)</label>
           <input id="base_url" placeholder="https://api.openai.com" />
 
-          <label style="margin-top:10px;">API Key</label>
-          <input id="api_key" placeholder="sk-..." />
+          <label style="margin-top:10px;">API Key（留空则保留原有 key）</label>
+          <input id="api_key" type="password" placeholder="留空则不更新" />
 
           <label style="margin-top:10px;">Model</label>
-          <input id="model" placeholder="gpt-4.1-mini (example)" />
+          <select id="model" style="width:100%; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px;">
+            <option value="">-- 选择模型 --</option>
+            <optgroup label="OpenAI">
+              <option value="gpt-4o">gpt-4o</option>
+              <option value="gpt-4o-mini">gpt-4o-mini</option>
+              <option value="gpt-4-turbo">gpt-4-turbo</option>
+              <option value="gpt-4">gpt-4</option>
+              <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+            </optgroup>
+            <optgroup label="Claude">
+              <option value="claude-3-opus-20240229">claude-3-opus</option>
+              <option value="claude-3-sonnet-20240229">claude-3-sonnet</option>
+              <option value="claude-3-haiku-20240307">claude-3-haiku</option>
+              <option value="claude-3-5-sonnet-20241022">claude-3.5-sonnet</option>
+            </optgroup>
+            <optgroup label="DeepSeek">
+              <option value="deepseek-chat">deepseek-chat</option>
+              <option value="deepseek-reasoner">deepseek-reasoner</option>
+            </optgroup>
+            <optgroup label="其他">
+              <option value="custom">自定义...</option>
+            </optgroup>
+          </select>
+          <input id="model_custom" placeholder="输入自定义模型名称" style="display:none; margin-top:6px;" />
 
           <div style="display:flex; gap:10px; margin-top:12px;">
-            <button id="save">Save</button>
+            <button id="save">Save All</button>
+            <button id="save-model">仅更新模型</button>
             <button id="health">Health</button>
-            <button id="echo-test">Echo Test</button>
           </div>
         </div>
         <div id="status" class="muted" style="margin-top:10px;"></div>
@@ -129,11 +152,51 @@
       const s = await api("/settings");
       document.getElementById("base_url").value = s.base_url || "";
       document.getElementById("api_key").value = "";
-      document.getElementById("model").value = s.model || "";
-      status.textContent = "Loaded settings (api_key hidden).";
+      // 设置模型下拉菜单
+      const modelSelect = document.getElementById("model");
+      const modelCustom = document.getElementById("model_custom");
+      const savedModel = s.model || "";
+      // 检查是否是预设模型
+      let found = false;
+      for (let opt of modelSelect.options) {
+        if (opt.value === savedModel) {
+          modelSelect.value = savedModel;
+          found = true;
+          break;
+        }
+      }
+      if (!found && savedModel) {
+        modelSelect.value = "custom";
+        modelCustom.style.display = "block";
+        modelCustom.value = savedModel;
+      }
+      status.textContent = "✅ 已加载设置 (api_key 已隐藏)";
     } catch (e) {
-      status.textContent = "Backend not reachable. Start backend first.";
+      status.textContent = "❌ 后端未连接，请先启动后端";
     }
+  }
+
+  // 模型下拉菜单：选择"自定义"时显示输入框
+  document.getElementById("model").onchange = () => {
+    const modelSelect = document.getElementById("model");
+    const modelCustom = document.getElementById("model_custom");
+    if (modelSelect.value === "custom") {
+      modelCustom.style.display = "block";
+      modelCustom.focus();
+    } else {
+      modelCustom.style.display = "none";
+      modelCustom.value = "";
+    }
+  };
+
+  // 获取当前选择的模型
+  function getSelectedModel() {
+    const modelSelect = document.getElementById("model");
+    const modelCustom = document.getElementById("model_custom");
+    if (modelSelect.value === "custom") {
+      return modelCustom.value.trim();
+    }
+    return modelSelect.value;
   }
 
   document.getElementById("save").onclick = async () => {
@@ -141,16 +204,43 @@
     try {
       const base_url = document.getElementById("base_url").value.trim();
       const api_key = document.getElementById("api_key").value.trim();
-      const model = document.getElementById("model").value.trim();
-      if (!base_url || !api_key || !model) {
-        status.textContent = "❌ 请填入所有字段";
+      const model = getSelectedModel();
+      if (!base_url || !model) {
+        status.textContent = "❌ 请填入 Base URL 和 Model";
         return;
       }
       status.textContent = "⏳ 保存中...";
-      await api("/settings", "POST", { base_url, api_key, model, provider: "openai_compatible" });
-      status.textContent = "✅ 保存成功！";
+      // 如果 api_key 为空，先获取旧的
+      let finalApiKey = api_key;
+      if (!finalApiKey) {
+        const old = await api("/settings");
+        finalApiKey = old.api_key === "********" ? "" : old.api_key;
+        if (!finalApiKey) {
+          // 需要从后端获取真实key，这里用特殊处理
+          status.textContent = "❌ 首次设置需要填入 API Key";
+          return;
+        }
+      }
+      await api("/settings", "POST", { base_url, api_key: finalApiKey || api_key, model, provider: "openai_compatible" });
+      status.textContent = "✅ 全部保存成功！";
     } catch (e) {
       status.textContent = "❌ 保存失败: " + e.message;
+    }
+  };
+
+  document.getElementById("save-model").onclick = async () => {
+    const status = document.getElementById("status");
+    try {
+      const model = getSelectedModel();
+      if (!model) {
+        status.textContent = "❌ 请选择模型";
+        return;
+      }
+      status.textContent = "⏳ 更新模型中...";
+      await api("/settings/model", "POST", { model });
+      status.textContent = "✅ 模型已更新为: " + model;
+    } catch (e) {
+      status.textContent = "❌ 更新模型失败: " + e.message;
     }
   };
 
@@ -162,18 +252,6 @@
       status.textContent = "✅ 后端正常: " + JSON.stringify(result);
     } catch (e) {
       status.textContent = "❌ 后端连接失败: " + e.message;
-    }
-  };
-
-  document.getElementById("echo-test").onclick = async () => {
-    const status = document.getElementById("status");
-    try {
-      status.textContent = "⏳ Echo 测试中...";
-      const result = await api("/echo", "POST", { user_message: "Hello from frontend!", session_id: "test" });
-      status.textContent = "✅ Echo 成功: " + result.echo;
-      document.getElementById("meta").textContent = "Echo 测试已完成！";
-    } catch (e) {
-      status.textContent = "❌ Echo 测试失败: " + e.message;
     }
   };
 
@@ -193,9 +271,15 @@
     }
   };
 
-  document.getElementById("clear").onclick = () => {
+  document.getElementById("clear").onclick = async () => {
     chatlog.innerHTML = "";
-    meta.textContent = "";
+    meta.textContent = "⏳ 清空中...";
+    try {
+      await api("/clear-history", "POST", { session_id: "default" });
+      meta.textContent = "✅ 对话历史已清空";
+    } catch (e) {
+      meta.textContent = "⚠️ 前端已清空，但后端历史清空失败";
+    }
   };
 
   loadSettings();

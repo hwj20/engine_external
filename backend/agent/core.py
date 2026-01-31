@@ -1,6 +1,7 @@
 from __future__ import annotations
 import logging
 from typing import Dict, Any, List, Optional
+from collections import defaultdict
 from .store import MemoryStore, SettingsStore
 from .context import ContextAssembler, ContextBudget
 from .llm import OpenAICompatibleClient
@@ -14,12 +15,17 @@ DEFAULT_PERSONA = """你是一个终身陪伴型AI助手。风格：亲密、聪
 - 记忆要克制：只把长期稳定且对未来有用的信息写入长期记忆。
 """
 
+# 最大保留的历史消息轮数
+MAX_HISTORY_TURNS = 10
+
 class AgentCore:
     def __init__(self, memory: MemoryStore, settings: SettingsStore):
         print("[AgentCore] Initializing AgentCore", flush=True)
         self.memory = memory
         self.settings = settings
         self.assembler = ContextAssembler(ContextBudget())
+        # 会话历史记录：session_id -> List[{role, content}]
+        self.conversation_history: Dict[str, List[Dict[str, str]]] = defaultdict(list)
         print("[AgentCore] AgentCore initialized", flush=True)
 
     def _mode(self, user_message: str) -> str:
@@ -45,8 +51,28 @@ class AgentCore:
         print(f"[AgentCore] Memory cards prepared: {len(cards)} cards", flush=True)
         return cards
 
+    def _get_conversation_history(self, session_id: str, max_turns: int = 5) -> List[Dict[str, str]]:
+        """获取最近的对话历史"""
+        history = self.conversation_history.get(session_id, [])
+        # 每轮包含 user + assistant，所以取 max_turns * 2 条消息
+        return history[-(max_turns * 2):] if history else []
+
+    def _add_to_history(self, session_id: str, role: str, content: str) -> None:
+        """添加消息到会话历史"""
+        self.conversation_history[session_id].append({"role": role, "content": content})
+        # 限制历史记录长度
+        if len(self.conversation_history[session_id]) > MAX_HISTORY_TURNS * 2:
+            self.conversation_history[session_id] = self.conversation_history[session_id][-(MAX_HISTORY_TURNS * 2):]
+
+    def clear_history(self, session_id: str) -> None:
+        """清空会话历史"""
+        if session_id in self.conversation_history:
+            self.conversation_history[session_id] = []
+            print(f"[AgentCore] Cleared history for session: {session_id}", flush=True)
+
     def chat(self, user_message: str, session_id: Optional[str] = None) -> Dict[str, Any]:
-        print(f"\n[AgentCore.chat] Processing: {user_message[:50]}...", flush=True)
+        session_id = session_id or "default"
+        print(f"\n[AgentCore.chat] Processing: {user_message[:50]}... (session: {session_id})", flush=True)
         logger.info(f"Processing chat message: {user_message[:50]}...")
         mode = self._mode(user_message)
         logger.info(f"Detected mode: {mode}")
@@ -82,18 +108,29 @@ class AgentCore:
         )
 
         system = pack["persona"] + "\n\n" + pack["state"] + "\n\n" + "可用记忆卡片:\n" + "\n".join(pack["memory_cards"])
-        messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": pack["user_input"]},
-        ]
+        
+        # 获取最近的对话历史
+        history = self._get_conversation_history(session_id, max_turns=5)
+        history_count = len(history) // 2
+        print(f"[AgentCore] Including {history_count} turns of conversation history", flush=True)
+        
+        # 构建消息列表：system + history + current user message
+        messages = [{"role": "system", "content": system}]
+        messages.extend(history)
+        messages.append({"role": "user", "content": pack["user_input"]})
 
         max_tokens = 220 if mode == "chat" else 400
-        print(f"[AgentCore] Calling LLM with max_tokens={max_tokens}", flush=True)
+        print(f"[AgentCore] Calling LLM with max_tokens={max_tokens}, total messages={len(messages)}", flush=True)
 
         try:
             ans = client.chat(messages, max_tokens=max_tokens, temperature=0.7 if mode=="chat" else 0.5)
             print(f"[AgentCore] LLM response received: {len(ans)} chars", flush=True)
             logger.info(f"LLM response received: {len(ans)} chars")
+            
+            # 保存对话历史
+            self._add_to_history(session_id, "user", user_message)
+            self._add_to_history(session_id, "assistant", ans)
+            print(f"[AgentCore] Conversation history updated for session: {session_id}", flush=True)
         except Exception as e:
             print(f"[AgentCore] LLM call failed: {type(e).__name__}: {e}", flush=True)
             logger.error(f"LLM call failed: {type(e).__name__}: {e}")
