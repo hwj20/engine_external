@@ -5,6 +5,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from agent.core import AgentCore
 from agent.store import MemoryStore, SettingsStore
+from memory_api import (
+    MemoryService, 
+    AddMemoryRequest, 
+    SearchMemoryRequest, 
+    DeleteMemoryRequest
+)
 
 # Configure logging
 logging.basicConfig(
@@ -32,6 +38,11 @@ os.makedirs(DATA_DIR, exist_ok=True)
 settings = SettingsStore(os.path.join(DATA_DIR, "settings.json"))
 memory = MemoryStore(os.path.join(DATA_DIR, "memory.sqlite3"))
 agent = AgentCore(memory=memory, settings=settings)
+
+# 初始化 Memory Framework 服务
+memory_service = MemoryService.get_instance(
+    user_id="default_user"
+)
 
 class ChatReq(BaseModel):
     user_message: str
@@ -109,6 +120,73 @@ def echo(req: ChatReq):
     print(f"\n[ECHO] Received message: '{req.user_message}'", flush=True)
     logger.info(f"Echo test: {req.user_message}")
     return {"echo": req.user_message, "received_at": "backend"}
+
+
+# ==================== Memory Framework API ====================
+
+@app.get("/memory/tree")
+def get_memory_tree():
+    """获取记忆树摘要"""
+    print("[MEMORY] Getting memory tree summary", flush=True)
+    return memory_service.get_memory_tree_summary()
+
+
+@app.get("/memory/graph")
+def get_knowledge_graph():
+    """获取知识图谱摘要"""
+    print("[MEMORY] Getting knowledge graph summary", flush=True)
+    return memory_service.get_knowledge_graph_summary()
+
+
+@app.post("/memory/add")
+def add_memory(req: AddMemoryRequest):
+    """添加新记忆"""
+    print(f"[MEMORY] Adding memory: {req.content[:50]}...", flush=True)
+    memory_id = memory_service.add_memory(
+        content=req.content,
+        importance=req.importance,
+        emotion_tags=req.emotion_tags,
+        topic_tags=req.topic_tags,
+        entities=req.entities
+    )
+    return {"ok": True, "memory_id": memory_id}
+
+
+@app.post("/memory/search")
+def search_memories(req: SearchMemoryRequest):
+    """搜索记忆"""
+    print(f"[MEMORY] Searching: query={req.query}, time={req.time_hint}, topic={req.topic}", flush=True)
+    results = memory_service.search_memories(
+        query=req.query,
+        time_hint=req.time_hint,
+        topic=req.topic,
+        limit=req.limit
+    )
+    return {"results": results}
+
+
+@app.post("/memory/delete")
+def delete_memory(req: DeleteMemoryRequest):
+    """删除记忆"""
+    print(f"[MEMORY] Deleting memory: {req.memory_id}", flush=True)
+    result = memory_service.delete_memory(req.memory_id)
+    return {"ok": result}
+
+
+@app.post("/memory/demo")
+def add_demo_data():
+    """添加演示数据"""
+    print("[MEMORY] Adding demo data", flush=True)
+    result = memory_service.add_demo_data()
+    return {"ok": True, **result}
+
+
+@app.get("/memory/context")
+def get_memory_context(query: str = None, limit: int = 10):
+    """获取对话上下文"""
+    print(f"[MEMORY] Getting context for: {query}", flush=True)
+    context = memory_service.get_context_for_conversation(query, limit)
+    return context
 
 if __name__ == "__main__":
     import uvicorn

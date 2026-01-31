@@ -14,8 +14,9 @@
     body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 0; background: #0b0f17; color: #e7eefc; }
     header { padding: 14px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom: 1px solid rgba(255,255,255,.08); }
     .badge { font-size: 12px; opacity: .75; }
-    .wrap { display:grid; grid-template-columns: 360px 1fr; height: calc(100vh - 52px); }
+    .wrap { display:grid; grid-template-columns: 360px 1fr 360px; height: calc(100vh - 52px); }
     .panel { border-right: 1px solid rgba(255,255,255,.08); padding: 14px; overflow:auto; }
+    .panel-right { border-left: 1px solid rgba(255,255,255,.08); border-right: none; padding: 14px; overflow:auto; }
     .main { padding: 14px; display:flex; flex-direction:column; gap:10px; }
     .card { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 12px; }
     label { display:block; font-size: 12px; opacity: .85; margin-bottom: 6px; }
@@ -28,6 +29,25 @@
     .u { background: rgba(80,120,255,.12); align-self:flex-end; max-width: 76%; }
     .a { background: rgba(255,255,255,.06); align-self:flex-start; max-width: 76%; }
     .muted { opacity:.75; font-size:12px; }
+    
+    /* Memory Panel Styles */
+    .memory-item { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06); border-radius: 10px; padding: 10px; margin-bottom: 8px; transition: all 0.2s; }
+    .memory-item:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.12); }
+    .memory-content { font-size: 13px; margin-bottom: 6px; line-height: 1.4; }
+    .memory-meta { font-size: 11px; opacity: 0.6; display: flex; gap: 8px; flex-wrap: wrap; }
+    .memory-tag { background: rgba(80,120,255,.2); padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+    .memory-tag.emotion { background: rgba(255,100,100,.2); }
+    .memory-tag.topic { background: rgba(100,200,100,.2); }
+    .entity-item { background: rgba(255,200,100,.1); border: 1px solid rgba(255,200,100,.2); border-radius: 8px; padding: 8px; margin-bottom: 6px; }
+    .entity-name { font-weight: 600; font-size: 13px; }
+    .entity-type { font-size: 11px; opacity: 0.6; }
+    .relation-item { font-size: 12px; padding: 6px 8px; background: rgba(100,200,255,.1); border-radius: 6px; margin-bottom: 4px; }
+    .tab-buttons { display: flex; gap: 6px; margin-bottom: 10px; }
+    .tab-btn { flex: 1; text-align: center; padding: 8px; border-radius: 8px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); cursor: pointer; font-size: 12px; }
+    .tab-btn.active { background: rgba(80,120,255,.2); border-color: rgba(80,120,255,.4); }
+    .stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); font-size: 12px; }
+    .importance-bar { height: 4px; background: rgba(255,255,255,.1); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+    .importance-fill { height: 100%; background: linear-gradient(90deg, #4080ff, #80c0ff); }
   </style>
 </head>
 <body>
@@ -109,6 +129,63 @@
         <div id="meta" class="muted" style="margin-top:10px;"></div>
       </div>
     </main>
+
+    <!-- Memory Panel -->
+    <aside class="panel-right">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <div style="font-weight:700;">🧠 Memory</div>
+          <button id="refresh-memory" style="padding:6px 10px; font-size:11px;">刷新</button>
+        </div>
+        
+        <div class="tab-buttons">
+          <div class="tab-btn active" data-tab="memories">记忆</div>
+          <div class="tab-btn" data-tab="entities">实体</div>
+          <div class="tab-btn" data-tab="stats">统计</div>
+        </div>
+
+        <!-- 记忆列表 -->
+        <div id="memories-tab" class="tab-content">
+          <div id="memory-list" style="max-height: 400px; overflow:auto;">
+            <div class="muted" style="text-align:center; padding:20px;">点击刷新加载记忆...</div>
+          </div>
+        </div>
+
+        <!-- 实体列表 -->
+        <div id="entities-tab" class="tab-content" style="display:none;">
+          <div id="entity-list" style="max-height: 300px; overflow:auto;">
+            <div class="muted" style="text-align:center; padding:20px;">暂无实体...</div>
+          </div>
+          <div style="margin-top:10px;">
+            <div style="font-weight:600; font-size:12px; margin-bottom:6px;">关系网络</div>
+            <div id="relation-list" style="max-height: 150px; overflow:auto;">
+              <div class="muted" style="text-align:center; padding:10px;">暂无关系...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 统计信息 -->
+        <div id="stats-tab" class="tab-content" style="display:none;">
+          <div id="memory-stats">
+            <div class="muted" style="text-align:center; padding:20px;">加载中...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px;">
+        <div style="font-weight:700; margin-bottom:8px;">添加记忆</div>
+        <textarea id="new-memory" placeholder="输入要添加的记忆内容..." style="min-height:60px;"></textarea>
+        <div style="display:flex; gap:6px; margin-top:8px;">
+          <input id="memory-tags" placeholder="标签（逗号分隔）" style="flex:1;" />
+          <input id="memory-importance" type="number" min="0" max="1" step="0.1" value="0.5" style="width:60px;" />
+        </div>
+        <div style="display:flex; gap:6px; margin-top:8px;">
+          <button id="add-memory" style="flex:1;">添加记忆</button>
+          <button id="add-demo" style="flex:1;">添加演示数据</button>
+        </div>
+        <div id="memory-status" class="muted" style="margin-top:8px;"></div>
+      </div>
+    </aside>
   </div>
 
 <script>
@@ -255,7 +332,8 @@
     }
   };
 
-  document.getElementById("send").onclick = async () => {
+  // 发送消息函数
+  async function sendMessage() {
     const msg = document.getElementById("msg").value.trim();
     if (!msg) return;
     document.getElementById("msg").value = "";
@@ -268,6 +346,23 @@
     } catch (e) {
       addBubble("❌ 后端错误: " + e.message, "assistant");
       meta.textContent = "❌ 请求失败";
+    }
+  }
+
+  // Send 按钮点击
+  document.getElementById("send").onclick = sendMessage;
+
+  // 输入框键盘事件：Enter 发送，Shift+Enter 换行
+  document.getElementById("msg").onkeydown = (e) => {
+    if (e.key === "Enter") {
+      if (e.shiftKey) {
+        // Shift+Enter：换行（默认行为）
+        return;
+      } else {
+        // Enter：发送
+        e.preventDefault();
+        sendMessage();
+      }
     }
   };
 
@@ -283,6 +378,149 @@
   };
 
   loadSettings();
+
+  // ==================== Memory Panel ====================
+  
+  // Tab 切换
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab + '-tab').style.display = 'block';
+    };
+  });
+
+  // 刷新记忆
+  async function loadMemory() {
+    const memoryList = document.getElementById('memory-list');
+    const entityList = document.getElementById('entity-list');
+    const relationList = document.getElementById('relation-list');
+    const memoryStats = document.getElementById('memory-stats');
+    
+    try {
+      // 加载记忆树
+      const tree = await api("/memory/tree");
+      
+      if (tree.recent_memories && tree.recent_memories.length > 0) {
+        memoryList.innerHTML = tree.recent_memories.map(m => `
+          <div class="memory-item">
+            <div class="memory-content">${escapeHtml(m.content)}</div>
+            <div class="importance-bar"><div class="importance-fill" style="width:${(m.effective_importance * 100).toFixed(0)}%"></div></div>
+            <div class="memory-meta">
+              <span>📅 ${new Date(m.timestamp).toLocaleString('zh-CN')}</span>
+              <span>⭐ ${(m.effective_importance * 100).toFixed(0)}%</span>
+              ${m.mention_count > 0 ? `<span>💬 ${m.mention_count}次</span>` : ''}
+            </div>
+            <div style="margin-top:4px;">
+              ${m.emotion_tags.map(t => `<span class="memory-tag emotion">${t}</span>`).join('')}
+              ${m.topic_tags.map(t => `<span class="memory-tag topic">${t}</span>`).join('')}
+            </div>
+          </div>
+        `).join('');
+      } else {
+        memoryList.innerHTML = '<div class="muted" style="text-align:center; padding:20px;">暂无记忆，试试添加演示数据</div>';
+      }
+      
+      // 加载知识图谱
+      const graph = await api("/memory/graph");
+      
+      if (graph.entities && graph.entities.length > 0) {
+        entityList.innerHTML = graph.entities.map(e => `
+          <div class="entity-item">
+            <div class="entity-name">${escapeHtml(e.name)}</div>
+            <div class="entity-type">${e.type} • 重要度: ${(e.importance * 100).toFixed(0)}% • 提及: ${e.mention_count}次</div>
+          </div>
+        `).join('');
+      } else {
+        entityList.innerHTML = '<div class="muted" style="text-align:center; padding:10px;">暂无实体</div>';
+      }
+      
+      if (graph.relationships && graph.relationships.length > 0) {
+        relationList.innerHTML = graph.relationships.map(r => `
+          <div class="relation-item">
+            <strong>${escapeHtml(r.source)}</strong> → <span style="opacity:0.7">${r.type}</span> → <strong>${escapeHtml(r.target)}</strong>
+            ${r.description ? `<div class="muted">${escapeHtml(r.description)}</div>` : ''}
+          </div>
+        `).join('');
+      } else {
+        relationList.innerHTML = '<div class="muted" style="text-align:center; padding:10px;">暂无关系</div>';
+      }
+      
+      // 统计信息
+      memoryStats.innerHTML = `
+        <div class="stat-row"><span>总记忆数</span><strong>${tree.total_memories}</strong></div>
+        <div class="stat-row"><span>实体数</span><strong>${graph.total_entities}</strong></div>
+        <div class="stat-row"><span>关系数</span><strong>${graph.total_relationships}</strong></div>
+        ${Object.entries(graph.entities_by_type || {}).map(([k, v]) => 
+          `<div class="stat-row"><span>- ${k}</span><span>${v}</span></div>`
+        ).join('')}
+        <div style="margin-top:10px; font-size:11px; opacity:0.6;">
+          ${tree.years.map(y => `${y.year}: ${y.months.length}个月`).join(' | ') || '暂无时间数据'}
+        </div>
+      `;
+      
+    } catch (e) {
+      memoryList.innerHTML = `<div class="muted" style="text-align:center; padding:20px;">❌ 加载失败: ${e.message}</div>`;
+    }
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  document.getElementById('refresh-memory').onclick = loadMemory;
+
+  // 添加记忆
+  document.getElementById('add-memory').onclick = async () => {
+    const memoryStatus = document.getElementById('memory-status');
+    const content = document.getElementById('new-memory').value.trim();
+    const tags = document.getElementById('memory-tags').value.trim();
+    const importance = parseFloat(document.getElementById('memory-importance').value) || 0.5;
+    
+    if (!content) {
+      memoryStatus.textContent = '❌ 请输入记忆内容';
+      return;
+    }
+    
+    try {
+      memoryStatus.textContent = '⏳ 添加中...';
+      const topicTags = tags ? tags.split(',').map(t => t.trim()).filter(t => t) : [];
+      
+      await api("/memory/add", "POST", {
+        content,
+        importance,
+        topic_tags: topicTags,
+        emotion_tags: [],
+        entities: []
+      });
+      
+      memoryStatus.textContent = '✅ 记忆已添加';
+      document.getElementById('new-memory').value = '';
+      document.getElementById('memory-tags').value = '';
+      loadMemory();
+    } catch (e) {
+      memoryStatus.textContent = '❌ 添加失败: ' + e.message;
+    }
+  };
+
+  // 添加演示数据
+  document.getElementById('add-demo').onclick = async () => {
+    const memoryStatus = document.getElementById('memory-status');
+    try {
+      memoryStatus.textContent = '⏳ 添加演示数据...';
+      const result = await api("/memory/demo", "POST");
+      memoryStatus.textContent = `✅ 已添加 ${result.added} 条演示记忆`;
+      loadMemory();
+    } catch (e) {
+      memoryStatus.textContent = '❌ 添加失败: ' + e.message;
+    }
+  };
+
+  // 页面加载时自动加载记忆
+  setTimeout(loadMemory, 500);
 </script>
 </body>
 </html>
