@@ -1,6 +1,9 @@
 import json
+import logging
 import urllib.request
 from typing import Dict, List
+
+logger = logging.getLogger(__name__)
 
 class OpenAICompatibleClient:
     '''
@@ -14,6 +17,7 @@ class OpenAICompatibleClient:
 
     def chat(self, messages: List[Dict[str, str]], max_tokens: int = 300, temperature: float = 0.6) -> str:
         url = f"{self.base_url}/v1/chat/completions"
+        logger.info(f"Calling LLM: {url} with model {self.model}")
         payload = {
             "model": self.model,
             "messages": messages,
@@ -24,6 +28,11 @@ class OpenAICompatibleClient:
         req = urllib.request.Request(url, data=data, method="POST")
         req.add_header("Content-Type", "application/json")
         req.add_header("Authorization", f"Bearer {self.api_key}")
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            obj = json.loads(resp.read().decode("utf-8"))
-        return obj["choices"][0]["message"]["content"]
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                obj = json.loads(resp.read().decode("utf-8"))
+            logger.info(f"LLM response received successfully")
+            return obj["choices"][0]["message"]["content"]
+        except Exception as e:
+            logger.error(f"LLM request failed: {type(e).__name__}: {e}")
+            raise

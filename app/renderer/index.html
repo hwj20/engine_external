@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self' http://127.0.0.1:8787;
+                 script-src 'self' 'unsafe-inline';
                  style-src 'self' 'unsafe-inline';
                  img-src 'self' data:;
                  connect-src 'self' http://127.0.0.1:8787;">
@@ -41,21 +42,27 @@
   <div class="wrap">
     <aside class="panel">
       <div class="card">
-        <div style="font-weight:700; margin-bottom:8px;">Settings</div>
-        <div class="muted" style="margin-bottom:10px;">填入 OpenAI-compatible 的 base_url / api_key / model（只存本地）。</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" id="settings-toggle">
+          <div style="font-weight:700;">⚙️ Settings</div>
+          <span id="settings-arrow">▼</span>
+        </div>
+        <div id="settings-content" style="display:none; margin-top:10px;">
+          <div class="muted" style="margin-bottom:10px;">填入 OpenAI-compatible 的 base_url / api_key / model（只存本地）。</div>
 
-        <label>Base URL (e.g. https://api.openai.com)</label>
-        <input id="base_url" placeholder="https://api.openai.com" />
+          <label>Base URL (e.g. https://api.openai.com)</label>
+          <input id="base_url" placeholder="https://api.openai.com" />
 
-        <label style="margin-top:10px;">API Key</label>
-        <input id="api_key" placeholder="sk-..." />
+          <label style="margin-top:10px;">API Key</label>
+          <input id="api_key" placeholder="sk-..." />
 
-        <label style="margin-top:10px;">Model</label>
-        <input id="model" placeholder="gpt-4.1-mini (example)" />
+          <label style="margin-top:10px;">Model</label>
+          <input id="model" placeholder="gpt-4.1-mini (example)" />
 
-        <div style="display:flex; gap:10px; margin-top:12px;">
-          <button id="save">Save</button>
-          <button id="health">Health</button>
+          <div style="display:flex; gap:10px; margin-top:12px;">
+            <button id="save">Save</button>
+            <button id="health">Health</button>
+            <button id="echo-test">Echo Test</button>
+          </div>
         </div>
         <div id="status" class="muted" style="margin-top:10px;"></div>
       </div>
@@ -87,6 +94,19 @@
   const status = document.getElementById("status");
   const meta = document.getElementById("meta");
 
+  // Settings 折叠/展开
+  document.getElementById("settings-toggle").onclick = () => {
+    const content = document.getElementById("settings-content");
+    const arrow = document.getElementById("settings-arrow");
+    if (content.style.display === "none") {
+      content.style.display = "block";
+      arrow.textContent = "▲";
+    } else {
+      content.style.display = "none";
+      arrow.textContent = "▼";
+    }
+  };
+
   function addBubble(text, who) {
     const div = document.createElement("div");
     div.className = "bubble " + (who === "user" ? "u" : "a");
@@ -117,23 +137,43 @@
   }
 
   document.getElementById("save").onclick = async () => {
+    const status = document.getElementById("status");
     try {
       const base_url = document.getElementById("base_url").value.trim();
       const api_key = document.getElementById("api_key").value.trim();
       const model = document.getElementById("model").value.trim();
+      if (!base_url || !api_key || !model) {
+        status.textContent = "❌ 请填入所有字段";
+        return;
+      }
+      status.textContent = "⏳ 保存中...";
       await api("/settings", "POST", { base_url, api_key, model, provider: "openai_compatible" });
-      status.textContent = "Saved.";
+      status.textContent = "✅ 保存成功！";
     } catch (e) {
-      status.textContent = "Save failed: " + e.message;
+      status.textContent = "❌ 保存失败: " + e.message;
     }
   };
 
   document.getElementById("health").onclick = async () => {
+    const status = document.getElementById("status");
     try {
-      await api("/health");
-      status.textContent = "Health: ok";
+      status.textContent = "⏳ 检查中...";
+      const result = await api("/health");
+      status.textContent = "✅ 后端正常: " + JSON.stringify(result);
     } catch (e) {
-      status.textContent = "Health failed: " + e.message;
+      status.textContent = "❌ 后端连接失败: " + e.message;
+    }
+  };
+
+  document.getElementById("echo-test").onclick = async () => {
+    const status = document.getElementById("status");
+    try {
+      status.textContent = "⏳ Echo 测试中...";
+      const result = await api("/echo", "POST", { user_message: "Hello from frontend!", session_id: "test" });
+      status.textContent = "✅ Echo 成功: " + result.echo;
+      document.getElementById("meta").textContent = "Echo 测试已完成！";
+    } catch (e) {
+      status.textContent = "❌ Echo 测试失败: " + e.message;
     }
   };
 
@@ -142,12 +182,14 @@
     if (!msg) return;
     document.getElementById("msg").value = "";
     addBubble(msg, "user");
+    meta.textContent = "⏳ 等待回复...";
     try {
       const out = await api("/chat", "POST", { user_message: msg, session_id: "default" });
       addBubble(out.assistant_message, "assistant");
-      meta.textContent = `mode=${out.mode} • memory_cards=${out.used_memory_cards.length}`;
+      meta.textContent = `✅ 模式=${out.mode} • 内存卡片=${out.used_memory_cards.length}`;
     } catch (e) {
-      addBubble("Backend error: " + e.message, "assistant");
+      addBubble("❌ 后端错误: " + e.message, "assistant");
+      meta.textContent = "❌ 请求失败";
     }
   };
 

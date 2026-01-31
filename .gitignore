@@ -1,0 +1,4 @@
+app/node_modules/
+__pycache__/
+.venv/
+data/

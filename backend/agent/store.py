@@ -2,7 +2,10 @@ import os
 import json
 import sqlite3
 import time
+import logging
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 def _now_ts() -> int:
     return int(time.time())
@@ -14,19 +17,26 @@ class SettingsStore:
     '''
     def __init__(self, path: str):
         self.path = path
+        print(f"[SettingsStore] Initializing at {path}", flush=True)
         if not os.path.exists(self.path):
+            print(f"[SettingsStore] Creating new settings file", flush=True)
             self.set({
                 "provider": "openai_compatible",
                 "base_url": "",
                 "api_key": "",
                 "model": ""
             })
+        else:
+            print(f"[SettingsStore] Loading existing settings from {path}", flush=True)
 
     def set(self, data: Dict[str, Any]) -> None:
+        print(f"[SettingsStore.set] Writing settings", flush=True)
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+        logger.info(f"Settings saved to {self.path}")
 
     def get(self) -> Dict[str, Any]:
+        print(f"[SettingsStore.get] Reading settings from {self.path}", flush=True)
         with open(self.path, "r", encoding="utf-8") as f:
             return json.load(f)
 
@@ -45,6 +55,7 @@ class MemoryStore:
     '''
     def __init__(self, db_path: str):
         self.db_path = db_path
+        print(f"[MemoryStore] Initializing at {db_path}", flush=True)
         self._init()
 
     def _conn(self) -> sqlite3.Connection:
@@ -53,6 +64,7 @@ class MemoryStore:
         return conn
 
     def _init(self) -> None:
+        print(f"[MemoryStore._init] Creating/checking database tables", flush=True)
         with self._conn() as conn:
             conn.execute('''
             CREATE TABLE IF NOT EXISTS semantic_memory(
@@ -88,9 +100,11 @@ class MemoryStore:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_ep_imp ON episodic_memory(importance)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_sum_session ON conversation_summaries(session_id)")
             conn.commit()
+        print(f"[MemoryStore._init] Database initialized", flush=True)
 
     # ---- Semantic ----
     def upsert_semantic(self, key: str, value: str, confidence: float = 0.8, locked: int = 0) -> None:
+        print(f"[MemoryStore] Upserting semantic: key={key}, confidence={confidence}", flush=True)
         with self._conn() as conn:
             conn.execute('''
             INSERT INTO semantic_memory(key, value, confidence, locked, updated_at)
@@ -104,6 +118,7 @@ class MemoryStore:
             conn.commit()
 
     def get_semantic_top(self, limit: int = 50) -> List[dict]:
+        print(f"[MemoryStore] Getting top {limit} semantic memories", flush=True)
         with self._conn() as conn:
             rows = conn.execute('''
             SELECT key, value, confidence, locked, updated_at
@@ -111,10 +126,13 @@ class MemoryStore:
             ORDER BY locked DESC, updated_at DESC
             LIMIT ?
             ''', (limit,)).fetchall()
-            return [dict(r) for r in rows]
+            result = [dict(r) for r in rows]
+            print(f"[MemoryStore] Retrieved {len(result)} semantic memories", flush=True)
+            return result
 
     # ---- Episodic ----
     def add_episode(self, title: str, detail: str, entities: str = "", importance: float = 0.5, ts: Optional[int] = None) -> None:
+        print(f"[MemoryStore] Adding episode: {title}, importance={importance}", flush=True)
         with self._conn() as conn:
             conn.execute('''
             INSERT INTO episodic_memory(ts, title, detail, entities, importance)
@@ -123,6 +141,7 @@ class MemoryStore:
             conn.commit()
 
     def search_episodes_keyword(self, query: str, limit: int = 8) -> List[dict]:
+        print(f"[MemoryStore] Searching episodes with keyword: '{query}', limit={limit}", flush=True)
         q = f"%{query}%"
         with self._conn() as conn:
             rows = conn.execute('''
@@ -132,7 +151,9 @@ class MemoryStore:
             ORDER BY importance DESC, ts DESC
             LIMIT ?
             ''', (q, q, q, limit)).fetchall()
-            return [dict(r) for r in rows]
+            result = [dict(r) for r in rows]
+            print(f"[MemoryStore] Found {len(result)} matching episodes", flush=True)
+            return result
 
     def recent_episodes(self, limit: int = 8) -> List[dict]:
         with self._conn() as conn:
