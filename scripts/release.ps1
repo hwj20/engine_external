@@ -8,8 +8,9 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$GitHubToken,
     
-    [string]$RepoOwner = "YOUR_GITHUB_USERNAME",
-    [string]$RepoName = "aurora_local_agent_mvp",
+    [string]$ProjectName = "AURORA Local Agent MVP",
+    [string]$RepoOwner = "hwj20",
+    [string]$RepoName = "engine_external",
     
     [switch]$Draft,
     [switch]$PreRelease
@@ -20,12 +21,13 @@ $RootDir = Split-Path -Parent $PSScriptRoot
 $DistDir = Join-Path $RootDir "dist"
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "AURORA - GitHub Release Script" -ForegroundColor Cyan
+Write-Host "$ProjectName - GitHub Release Script" -ForegroundColor Cyan
 Write-Host "Version: v$Version" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
 # Check if artifact exists
-$zipPath = Join-Path $DistDir "AURORA-Local-Agent-$Version-win-x64.zip"
+$projectSafeName = $ProjectName -replace ' ', '-'
+$zipPath = Join-Path $DistDir "$projectSafeName-$Version-win-x64.zip"
 if (-not (Test-Path $zipPath)) {
     Write-Host "Error: Build artifact not found at $zipPath" -ForegroundColor Red
     Write-Host "Please run build.ps1 first" -ForegroundColor Yellow
@@ -45,15 +47,15 @@ Write-Host "`n[1/3] Creating GitHub release..." -ForegroundColor Yellow
 $releaseBody = @{
     tag_name = "v$Version"
     target_commitish = "main"
-    name = "AURORA Local Agent v$Version"
+    name = "$ProjectName v$Version"
     body = @"
-## AURORA Local Agent MVP v$Version
+## $ProjectName v$Version
 
 ### Changes
 - See commit history for details
 
 ### Installation
-1. Download `AURORA-Local-Agent-$Version-win-x64.zip`
+1. Download `$projectSafeName-$Version-win-x64.zip`
 2. Extract to your preferred location
 3. Run `Start-AURORA.bat`
 
@@ -83,7 +85,7 @@ catch {
 Write-Host "`n[2/3] Uploading release asset..." -ForegroundColor Yellow
 
 $uploadUrl = $release.upload_url -replace '\{.*\}', ''
-$assetName = "AURORA-Local-Agent-$Version-win-x64.zip"
+$assetName = "$projectSafeName-$Version-win-x64.zip"
 $uploadHeaders = @{
     "Authorization" = "token $GitHubToken"
     "Accept" = "application/vnd.github.v3+json"

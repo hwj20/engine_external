@@ -1,28 +1,28 @@
-{
-  "name": "aurora-local-agent-mvp",
-  "version": "0.1.0",
-  "private": true,
-  "main": "electron/main.js",
-  "scripts": {
-    "dev": "node electron/dev.js",
-    "start": "electron .",
-    "dist": "electron-builder"
-  },
-  "dependencies": {
-    "electron": "^30.0.0"
-  },
-  "devDependencies": {
-    "electron-builder": "^24.13.3"
-  },
-  "build": {
-    "appId": "com.aurora.localagent",
-    "productName": "AURORA Local Agent MVP",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "electron/**/*",
-      "renderer/**/*"
-    ]
-  }
+﻿{
+    "name":  "aurora-local-agent-mvp",
+    "version":  "0.1.0",
+    "private":  true,
+    "main":  "electron/main.js",
+    "scripts":  {
+                    "dev":  "node electron/dev.js",
+                    "start":  "electron .",
+                    "dist":  "electron-builder"
+                },
+    "dependencies":  {
+                         "electron":  "^30.0.0"
+                     },
+    "devDependencies":  {
+                            "electron-builder":  "^24.13.3"
+                        },
+    "build":  {
+                  "appId":  "com.aurora.localagent",
+                  "productName":  "AURORA Local Agent MVP",
+                  "directories":  {
+                                      "output":  "dist"
+                                  },
+                  "files":  [
+                                "electron/**/*",
+                                "renderer/**/*"
+                            ]
+              }
 }

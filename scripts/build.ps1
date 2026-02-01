@@ -3,6 +3,7 @@
 
 param(
     [string]$Version = "0.1.0",
+    [string]$ProjectName = "AURORA Local Agent MVP",
     [switch]$SkipBackend,
     [switch]$SkipFrontend
 )
@@ -13,7 +14,7 @@ $BuildDir = Join-Path $RootDir "build"
 $DistDir = Join-Path $RootDir "dist"
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "AURORA Local Agent MVP - Build Script" -ForegroundColor Cyan
+Write-Host "$ProjectName - Build Script" -ForegroundColor Cyan
 Write-Host "Version: $Version" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
@@ -176,7 +177,8 @@ if (-not $SkipFrontend) {
 # Package everything together
 Write-Host "`n[5/5] Creating final package..." -ForegroundColor Yellow
 
-$finalDir = Join-Path $DistDir "AURORA-Local-Agent-$Version-win-x64"
+$projectSafeName = $ProjectName -replace ' ', '-'
+$finalDir = Join-Path $DistDir "$projectSafeName-$Version-win-x64"
 New-Item -ItemType Directory -Path $finalDir -Force | Out-Null
 
 # Copy backend
@@ -198,7 +200,7 @@ New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
 # Create launcher script
 $launcherContent = @'
 @echo off
-echo Starting AURORA Local Agent...
+echo Starting $ProjectName...
 start "" "%~dp0aurora-backend.exe"
 timeout /t 2 /nobreak >nul
 start "" "%~dp0AURORA Local Agent MVP.exe"
@@ -213,7 +215,7 @@ $launcherContent | Set-Content (Join-Path $finalDir "Start-AURORA.bat") -Encodin
 } | ConvertTo-Json | Set-Content (Join-Path $finalDir "version.json") -Encoding UTF8
 
 # Create ZIP for release
-$zipPath = Join-Path $DistDir "AURORA-Local-Agent-$Version-win-x64.zip"
+$zipPath = Join-Path $DistDir "$projectSafeName-$Version-win-x64.zip"
 Compress-Archive -Path "$finalDir\*" -DestinationPath $zipPath -Force
 
 Write-Host "`n========================================" -ForegroundColor Cyan

@@ -2,3 +2,6 @@ app/node_modules/
 __pycache__/
 .venv/
 data/
+build/
+dist
+personal_info/
