@@ -14,9 +14,8 @@
     body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 0; background: #0b0f17; color: #e7eefc; }
     header { padding: 14px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom: 1px solid rgba(255,255,255,.08); }
     .badge { font-size: 12px; opacity: .75; }
-    .wrap { display:grid; grid-template-columns: 360px 1fr 360px; height: calc(100vh - 52px); }
+    .wrap { display:grid; grid-template-columns: 380px 1fr; height: calc(100vh - 52px); }
     .panel { border-right: 1px solid rgba(255,255,255,.08); padding: 14px; overflow:auto; }
-    .panel-right { border-left: 1px solid rgba(255,255,255,.08); border-right: none; padding: 14px; overflow:auto; }
     .main { padding: 14px; display:flex; flex-direction:column; gap:10px; }
     .card { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 12px; }
     label { display:block; font-size: 12px; opacity: .85; margin-bottom: 6px; }
@@ -114,6 +113,79 @@
         <div style="font-weight:700; margin-bottom:8px;">Cost Controls</div>
         <div class="muted">输出长度硬限制：Chat≈220 tokens，Task≈400 tokens；上下文预算≈2200 tokens（字符近似）。</div>
       </div>
+
+      <!-- Memory Panel (可折叠) -->
+      <div class="card" style="margin-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" id="memory-toggle">
+          <div style="font-weight:700;">🧠 Memory</div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button id="refresh-memory" style="padding:4px 8px; font-size:10px;" onclick="event.stopPropagation();">刷新</button>
+            <span id="memory-arrow">▼</span>
+          </div>
+        </div>
+        
+        <div id="memory-content" style="display:none; margin-top:10px;">
+          <!-- 插件选择 -->
+          <div style="margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,.08);">
+            <label style="font-size:11px; margin-bottom:4px;">🔌 记忆插件</label>
+            <select id="memory-plugin-select" style="width:100%; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:8px; font-size:12px;">
+              <option value="">加载中...</option>
+            </select>
+            <div id="plugin-info" class="muted" style="font-size:10px; padding:4px; margin-top:4px; background:rgba(255,255,255,.04); border-radius:4px;"></div>
+            <div id="plugin-features" style="margin-top:6px; display:flex; gap:4px; flex-wrap:wrap;"></div>
+          </div>
+          
+          <!-- Tab 切换 -->
+          <div class="tab-buttons">
+            <div class="tab-btn active" data-tab="memories">记忆</div>
+            <div class="tab-btn" data-tab="entities">实体</div>
+            <div class="tab-btn" data-tab="stats">统计</div>
+          </div>
+
+          <!-- 记忆列表 -->
+          <div id="memories-tab" class="tab-content">
+            <div id="memory-list" style="max-height: 250px; overflow:auto;">
+              <div class="muted" style="text-align:center; padding:15px;">点击刷新加载记忆...</div>
+            </div>
+          </div>
+
+          <!-- 实体列表 -->
+          <div id="entities-tab" class="tab-content" style="display:none;">
+            <div id="entity-list" style="max-height: 150px; overflow:auto;">
+              <div class="muted" style="text-align:center; padding:15px;">暂无实体...</div>
+            </div>
+            <div style="margin-top:8px;">
+              <div style="font-weight:600; font-size:11px; margin-bottom:4px;">关系网络</div>
+              <div id="relation-list" style="max-height: 100px; overflow:auto;">
+                <div class="muted" style="text-align:center; padding:8px;">暂无关系...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 统计信息 -->
+          <div id="stats-tab" class="tab-content" style="display:none;">
+            <div id="memory-stats">
+              <div class="muted" style="text-align:center; padding:15px;">加载中...</div>
+            </div>
+          </div>
+          
+          <!-- 添加记忆 -->
+          <div style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,.08);">
+            <div style="font-weight:600; font-size:12px; margin-bottom:6px;">添加记忆</div>
+            <textarea id="new-memory" placeholder="输入记忆内容..." style="min-height:50px; font-size:12px;"></textarea>
+            <div style="display:flex; gap:4px; margin-top:6px;">
+              <input id="memory-tags" placeholder="标签（逗号分隔）" style="flex:1; padding:6px; font-size:11px;" />
+              <input id="memory-importance" type="number" min="0" max="1" step="0.1" value="0.5" style="width:50px; padding:6px; font-size:11px;" />
+            </div>
+            <div style="display:flex; gap:4px; margin-top:6px;">
+              <button id="add-memory" style="flex:1; padding:6px; font-size:11px;">添加</button>
+              <button id="add-demo" style="flex:1; padding:6px; font-size:11px;">演示</button>
+              <button id="clear-memory" style="padding:6px; font-size:11px; background:rgba(255,80,80,.2);">清空</button>
+            </div>
+            <div id="memory-status" class="muted" style="margin-top:6px; font-size:10px;"></div>
+          </div>
+        </div>
+      </div>
     </aside>
 
     <main class="main">
@@ -129,83 +201,6 @@
         <div id="meta" class="muted" style="margin-top:10px;"></div>
       </div>
     </main>
-
-    <!-- Memory Panel -->
-    <aside class="panel-right">
-      <!-- 插件选择 -->
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <div style="font-weight:700;">🔌 记忆插件</div>
-          <button id="refresh-memory" style="padding:6px 10px; font-size:11px;">刷新</button>
-        </div>
-        
-        <div style="margin-bottom:10px;">
-          <label style="font-size:11px; margin-bottom:4px;">当前插件</label>
-          <select id="memory-plugin-select" style="width:100%; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:8px; font-size:12px;">
-            <option value="">加载中...</option>
-          </select>
-        </div>
-        
-        <div id="plugin-info" class="muted" style="font-size:11px; padding:6px; background:rgba(255,255,255,.04); border-radius:6px;">
-          选择插件查看详情...
-        </div>
-        
-        <div id="plugin-features" style="margin-top:8px; display:flex; gap:4px; flex-wrap:wrap;"></div>
-      </div>
-
-      <!-- 记忆内容 -->
-      <div class="card" style="margin-top:12px;">
-        <div style="font-weight:700; margin-bottom:10px;">🧠 Memory</div>
-        
-        <div class="tab-buttons">
-          <div class="tab-btn active" data-tab="memories">记忆</div>
-          <div class="tab-btn" data-tab="entities">实体</div>
-          <div class="tab-btn" data-tab="stats">统计</div>
-        </div>
-
-        <!-- 记忆列表 -->
-        <div id="memories-tab" class="tab-content">
-          <div id="memory-list" style="max-height: 350px; overflow:auto;">
-            <div class="muted" style="text-align:center; padding:20px;">点击刷新加载记忆...</div>
-          </div>
-        </div>
-
-        <!-- 实体列表 -->
-        <div id="entities-tab" class="tab-content" style="display:none;">
-          <div id="entity-list" style="max-height: 250px; overflow:auto;">
-            <div class="muted" style="text-align:center; padding:20px;">暂无实体...</div>
-          </div>
-          <div style="margin-top:10px;">
-            <div style="font-weight:600; font-size:12px; margin-bottom:6px;">关系网络</div>
-            <div id="relation-list" style="max-height: 120px; overflow:auto;">
-              <div class="muted" style="text-align:center; padding:10px;">暂无关系...</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 统计信息 -->
-        <div id="stats-tab" class="tab-content" style="display:none;">
-          <div id="memory-stats">
-            <div class="muted" style="text-align:center; padding:20px;">加载中...</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top:12px;">
-        <div style="font-weight:700; margin-bottom:8px;">添加记忆</div>
-        <textarea id="new-memory" placeholder="输入要添加的记忆内容..." style="min-height:60px;"></textarea>
-        <div style="display:flex; gap:6px; margin-top:8px;">
-          <input id="memory-tags" placeholder="标签（逗号分隔）" style="flex:1;" />
-          <input id="memory-importance" type="number" min="0" max="1" step="0.1" value="0.5" style="width:60px;" />
-        </div>
-        <div style="display:flex; gap:6px; margin-top:8px;">
-          <button id="add-memory" style="flex:1;">添加记忆</button>
-          <button id="add-demo" style="flex:1;">演示数据</button>
-          <button id="clear-memory" style="padding:8px; font-size:11px; background:rgba(255,80,80,.2);">清空</button>
-        </div>
-        <div id="memory-status" class="muted" style="margin-top:8px;"></div>
-      </div>
-    </aside>
   </div>
 
 <script>
@@ -221,6 +216,20 @@
     if (content.style.display === "none") {
       content.style.display = "block";
       arrow.textContent = "▲";
+    } else {
+      content.style.display = "none";
+      arrow.textContent = "▼";
+    }
+  };
+
+  // Memory 折叠/展开
+  document.getElementById("memory-toggle").onclick = () => {
+    const content = document.getElementById("memory-content");
+    const arrow = document.getElementById("memory-arrow");
+    if (content.style.display === "none") {
+      content.style.display = "block";
+      arrow.textContent = "▲";
+      loadMemory(); // 展开时自动加载
     } else {
       content.style.display = "none";
       arrow.textContent = "▼";
@@ -648,10 +657,9 @@
     }
   };
 
-  // 页面加载时初始化
+  // 页面加载时初始化（只加载插件列表，记忆等展开时再加载）
   setTimeout(() => {
     loadPlugins();
-    loadMemory();
   }, 500);
 </script>
 </body>
