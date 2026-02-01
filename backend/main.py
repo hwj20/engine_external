@@ -5,11 +5,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from agent.core import AgentCore
 from agent.store import MemoryStore, SettingsStore
-from memory_api import (
-    MemoryService, 
+from memory_plugin_api import (
+    MemoryPluginService,
     AddMemoryRequest, 
     SearchMemoryRequest, 
-    DeleteMemoryRequest
+    DeleteMemoryRequest,
+    SwitchPluginRequest,
+    PluginConfigRequest
 )
 
 # Configure logging
@@ -39,8 +41,8 @@ settings = SettingsStore(os.path.join(DATA_DIR, "settings.json"))
 memory = MemoryStore(os.path.join(DATA_DIR, "memory.sqlite3"))
 agent = AgentCore(memory=memory, settings=settings)
 
-# 初始化 Memory Framework 服务
-memory_service = MemoryService.get_instance(
+# 初始化 Memory Plugin 服务（新的插件化系统）
+memory_service = MemoryPluginService.get_instance(
     user_id="default_user"
 )
 
@@ -122,20 +124,61 @@ def echo(req: ChatReq):
     return {"echo": req.user_message, "received_at": "backend"}
 
 
-# ==================== Memory Framework API ====================
+# ==================== Memory Plugin API ====================
 
-@app.get("/memory/tree")
-def get_memory_tree():
-    """获取记忆树摘要"""
-    print("[MEMORY] Getting memory tree summary", flush=True)
-    return memory_service.get_memory_tree_summary()
+# --- 插件管理 ---
+
+@app.get("/memory/plugins")
+def get_available_plugins():
+    """获取所有可用的记忆插件"""
+    print("[MEMORY] Getting available plugins", flush=True)
+    return {"plugins": memory_service.get_available_plugins()}
 
 
-@app.get("/memory/graph")
-def get_knowledge_graph():
-    """获取知识图谱摘要"""
-    print("[MEMORY] Getting knowledge graph summary", flush=True)
-    return memory_service.get_knowledge_graph_summary()
+@app.get("/memory/plugins/active")
+def get_active_plugin():
+    """获取当前激活的插件"""
+    print("[MEMORY] Getting active plugin", flush=True)
+    return memory_service.get_active_plugin()
+
+
+@app.post("/memory/plugins/switch")
+def switch_plugin(req: SwitchPluginRequest):
+    """切换记忆插件"""
+    print(f"[MEMORY] Switching to plugin: {req.plugin_id}", flush=True)
+    result = memory_service.switch_plugin(req.plugin_id)
+    return result
+
+
+@app.post("/memory/plugins/config")
+def set_plugin_config(req: PluginConfigRequest):
+    """设置插件配置"""
+    print(f"[MEMORY] Setting config for plugin: {req.plugin_id}", flush=True)
+    result = memory_service.set_plugin_config(req.plugin_id, req.config)
+    return result
+
+
+# --- 记忆操作 ---
+
+@app.get("/memory/visualization")
+def get_visualization_data():
+    """获取可视化数据（包含记忆和插件信息）"""
+    print("[MEMORY] Getting visualization data", flush=True)
+    return memory_service.get_visualization_data()
+
+
+@app.get("/memory/stats")
+def get_memory_stats():
+    """获取记忆统计信息"""
+    print("[MEMORY] Getting stats", flush=True)
+    return memory_service.get_stats()
+
+
+@app.get("/memory/recent")
+def get_recent_memories(limit: int = 20):
+    """获取最近的记忆"""
+    print(f"[MEMORY] Getting recent memories (limit={limit})", flush=True)
+    return {"memories": memory_service.get_recent_memories(limit)}
 
 
 @app.post("/memory/add")
@@ -181,12 +224,36 @@ def add_demo_data():
     return {"ok": True, **result}
 
 
+@app.post("/memory/clear")
+def clear_all_memories():
+    """清空所有记忆"""
+    print("[MEMORY] Clearing all memories", flush=True)
+    result = memory_service.clear_all()
+    return {"ok": result}
+
+
 @app.get("/memory/context")
 def get_memory_context(query: str = None, limit: int = 10):
     """获取对话上下文"""
     print(f"[MEMORY] Getting context for: {query}", flush=True)
     context = memory_service.get_context_for_conversation(query, limit)
     return context
+
+
+# --- 知识图谱（如果插件支持）---
+
+@app.get("/memory/entities")
+def get_entities():
+    """获取实体列表"""
+    print("[MEMORY] Getting entities", flush=True)
+    return {"entities": memory_service.get_entities()}
+
+
+@app.get("/memory/relationships")
+def get_relationships():
+    """获取关系列表"""
+    print("[MEMORY] Getting relationships", flush=True)
+    return {"relationships": memory_service.get_relationships()}
 
 if __name__ == "__main__":
     import uvicorn

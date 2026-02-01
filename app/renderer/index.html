@@ -132,11 +132,30 @@
 
     <!-- Memory Panel -->
     <aside class="panel-right">
+      <!-- 插件选择 -->
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <div style="font-weight:700;">🧠 Memory</div>
+          <div style="font-weight:700;">🔌 记忆插件</div>
           <button id="refresh-memory" style="padding:6px 10px; font-size:11px;">刷新</button>
         </div>
+        
+        <div style="margin-bottom:10px;">
+          <label style="font-size:11px; margin-bottom:4px;">当前插件</label>
+          <select id="memory-plugin-select" style="width:100%; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:8px; font-size:12px;">
+            <option value="">加载中...</option>
+          </select>
+        </div>
+        
+        <div id="plugin-info" class="muted" style="font-size:11px; padding:6px; background:rgba(255,255,255,.04); border-radius:6px;">
+          选择插件查看详情...
+        </div>
+        
+        <div id="plugin-features" style="margin-top:8px; display:flex; gap:4px; flex-wrap:wrap;"></div>
+      </div>
+
+      <!-- 记忆内容 -->
+      <div class="card" style="margin-top:12px;">
+        <div style="font-weight:700; margin-bottom:10px;">🧠 Memory</div>
         
         <div class="tab-buttons">
           <div class="tab-btn active" data-tab="memories">记忆</div>
@@ -146,19 +165,19 @@
 
         <!-- 记忆列表 -->
         <div id="memories-tab" class="tab-content">
-          <div id="memory-list" style="max-height: 400px; overflow:auto;">
+          <div id="memory-list" style="max-height: 350px; overflow:auto;">
             <div class="muted" style="text-align:center; padding:20px;">点击刷新加载记忆...</div>
           </div>
         </div>
 
         <!-- 实体列表 -->
         <div id="entities-tab" class="tab-content" style="display:none;">
-          <div id="entity-list" style="max-height: 300px; overflow:auto;">
+          <div id="entity-list" style="max-height: 250px; overflow:auto;">
             <div class="muted" style="text-align:center; padding:20px;">暂无实体...</div>
           </div>
           <div style="margin-top:10px;">
             <div style="font-weight:600; font-size:12px; margin-bottom:6px;">关系网络</div>
-            <div id="relation-list" style="max-height: 150px; overflow:auto;">
+            <div id="relation-list" style="max-height: 120px; overflow:auto;">
               <div class="muted" style="text-align:center; padding:10px;">暂无关系...</div>
             </div>
           </div>
@@ -181,7 +200,8 @@
         </div>
         <div style="display:flex; gap:6px; margin-top:8px;">
           <button id="add-memory" style="flex:1;">添加记忆</button>
-          <button id="add-demo" style="flex:1;">添加演示数据</button>
+          <button id="add-demo" style="flex:1;">演示数据</button>
+          <button id="clear-memory" style="padding:8px; font-size:11px; background:rgba(255,80,80,.2);">清空</button>
         </div>
         <div id="memory-status" class="muted" style="margin-top:8px;"></div>
       </div>
@@ -379,7 +399,10 @@
 
   loadSettings();
 
-  // ==================== Memory Panel ====================
+  // ==================== Memory Plugin System ====================
+  
+  let currentPluginId = null;
+  let availablePlugins = [];
   
   // Tab 切换
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -391,6 +414,78 @@
     };
   });
 
+  // 加载可用插件列表
+  async function loadPlugins() {
+    const select = document.getElementById('memory-plugin-select');
+    const pluginInfo = document.getElementById('plugin-info');
+    const pluginFeatures = document.getElementById('plugin-features');
+    
+    try {
+      // 获取可用插件
+      const pluginsRes = await api("/memory/plugins");
+      availablePlugins = pluginsRes.plugins || [];
+      
+      // 获取当前激活的插件
+      const activeRes = await api("/memory/plugins/active");
+      currentPluginId = activeRes.id;
+      
+      // 填充下拉菜单
+      select.innerHTML = availablePlugins.map(p => 
+        `<option value="${p.id}" ${p.id === currentPluginId ? 'selected' : ''}>${p.name}</option>`
+      ).join('');
+      
+      // 显示当前插件信息
+      updatePluginInfo(currentPluginId);
+      
+    } catch (e) {
+      select.innerHTML = '<option value="">❌ 加载失败</option>';
+      pluginInfo.textContent = '无法连接到后端';
+    }
+  }
+  
+  // 更新插件信息显示
+  function updatePluginInfo(pluginId) {
+    const plugin = availablePlugins.find(p => p.id === pluginId);
+    const pluginInfo = document.getElementById('plugin-info');
+    const pluginFeatures = document.getElementById('plugin-features');
+    
+    if (plugin) {
+      pluginInfo.innerHTML = `
+        <strong>${plugin.name}</strong> v${plugin.version}<br/>
+        ${plugin.description}
+      `;
+      
+      // 显示功能标签
+      const features = [];
+      if (plugin.supports_vector_search) features.push('<span class="memory-tag" style="background:rgba(100,200,255,.2);">向量搜索</span>');
+      if (plugin.supports_graph) features.push('<span class="memory-tag" style="background:rgba(255,200,100,.2);">知识图谱</span>');
+      if (plugin.supports_temporal) features.push('<span class="memory-tag" style="background:rgba(100,255,100,.2);">时间检索</span>');
+      
+      pluginFeatures.innerHTML = features.join('');
+    }
+  }
+  
+  // 切换插件
+  document.getElementById('memory-plugin-select').onchange = async (e) => {
+    const newPluginId = e.target.value;
+    const memoryStatus = document.getElementById('memory-status');
+    
+    if (newPluginId && newPluginId !== currentPluginId) {
+      try {
+        memoryStatus.textContent = `⏳ 切换到 ${newPluginId}...`;
+        await api("/memory/plugins/switch", "POST", { plugin_id: newPluginId });
+        currentPluginId = newPluginId;
+        updatePluginInfo(newPluginId);
+        memoryStatus.textContent = `✅ 已切换到 ${availablePlugins.find(p => p.id === newPluginId)?.name || newPluginId}`;
+        loadMemory();
+      } catch (e) {
+        memoryStatus.textContent = `❌ 切换失败: ${e.message}`;
+        // 恢复选择
+        document.getElementById('memory-plugin-select').value = currentPluginId;
+      }
+    }
+  };
+
   // 刷新记忆
   async function loadMemory() {
     const memoryList = document.getElementById('memory-list');
@@ -399,22 +494,25 @@
     const memoryStats = document.getElementById('memory-stats');
     
     try {
-      // 加载记忆树
-      const tree = await api("/memory/tree");
+      // 使用新的可视化 API
+      const data = await api("/memory/visualization");
       
-      if (tree.recent_memories && tree.recent_memories.length > 0) {
-        memoryList.innerHTML = tree.recent_memories.map(m => `
+      // 显示记忆列表
+      const memories = data.recent_memories || (data.memory_tree?.recent_memories) || [];
+      
+      if (memories.length > 0) {
+        memoryList.innerHTML = memories.map(m => `
           <div class="memory-item">
             <div class="memory-content">${escapeHtml(m.content)}</div>
-            <div class="importance-bar"><div class="importance-fill" style="width:${(m.effective_importance * 100).toFixed(0)}%"></div></div>
+            <div class="importance-bar"><div class="importance-fill" style="width:${((m.effective_importance || m.importance) * 100).toFixed(0)}%"></div></div>
             <div class="memory-meta">
               <span>📅 ${new Date(m.timestamp).toLocaleString('zh-CN')}</span>
-              <span>⭐ ${(m.effective_importance * 100).toFixed(0)}%</span>
+              <span>⭐ ${((m.effective_importance || m.importance) * 100).toFixed(0)}%</span>
               ${m.mention_count > 0 ? `<span>💬 ${m.mention_count}次</span>` : ''}
             </div>
             <div style="margin-top:4px;">
-              ${m.emotion_tags.map(t => `<span class="memory-tag emotion">${t}</span>`).join('')}
-              ${m.topic_tags.map(t => `<span class="memory-tag topic">${t}</span>`).join('')}
+              ${(m.emotion_tags || []).map(t => `<span class="memory-tag emotion">${t}</span>`).join('')}
+              ${(m.topic_tags || []).map(t => `<span class="memory-tag topic">${t}</span>`).join('')}
             </div>
           </div>
         `).join('');
@@ -422,25 +520,29 @@
         memoryList.innerHTML = '<div class="muted" style="text-align:center; padding:20px;">暂无记忆，试试添加演示数据</div>';
       }
       
-      // 加载知识图谱
-      const graph = await api("/memory/graph");
+      // 显示实体（如果插件支持）
+      const entities = data.knowledge_graph?.entities || [];
+      const plugin = availablePlugins.find(p => p.id === currentPluginId);
       
-      if (graph.entities && graph.entities.length > 0) {
-        entityList.innerHTML = graph.entities.map(e => `
+      if (plugin?.supports_graph && entities.length > 0) {
+        entityList.innerHTML = entities.map(e => `
           <div class="entity-item">
             <div class="entity-name">${escapeHtml(e.name)}</div>
-            <div class="entity-type">${e.type} • 重要度: ${(e.importance * 100).toFixed(0)}% • 提及: ${e.mention_count}次</div>
+            <div class="entity-type">${e.type} • 重要度: ${(e.importance * 100).toFixed(0)}%</div>
           </div>
         `).join('');
+      } else if (!plugin?.supports_graph) {
+        entityList.innerHTML = '<div class="muted" style="text-align:center; padding:10px;">当前插件不支持知识图谱</div>';
       } else {
         entityList.innerHTML = '<div class="muted" style="text-align:center; padding:10px;">暂无实体</div>';
       }
       
-      if (graph.relationships && graph.relationships.length > 0) {
-        relationList.innerHTML = graph.relationships.map(r => `
+      // 显示关系
+      const relationships = data.knowledge_graph?.relationships || [];
+      if (relationships.length > 0) {
+        relationList.innerHTML = relationships.map(r => `
           <div class="relation-item">
             <strong>${escapeHtml(r.source)}</strong> → <span style="opacity:0.7">${r.type}</span> → <strong>${escapeHtml(r.target)}</strong>
-            ${r.description ? `<div class="muted">${escapeHtml(r.description)}</div>` : ''}
           </div>
         `).join('');
       } else {
@@ -448,15 +550,24 @@
       }
       
       // 统计信息
+      const stats = data.stats || {};
+      const activePlugin = data.active_plugin || currentPluginId;
+      const pluginName = availablePlugins.find(p => p.id === activePlugin)?.name || activePlugin;
+      
       memoryStats.innerHTML = `
-        <div class="stat-row"><span>总记忆数</span><strong>${tree.total_memories}</strong></div>
-        <div class="stat-row"><span>实体数</span><strong>${graph.total_entities}</strong></div>
-        <div class="stat-row"><span>关系数</span><strong>${graph.total_relationships}</strong></div>
-        ${Object.entries(graph.entities_by_type || {}).map(([k, v]) => 
-          `<div class="stat-row"><span>- ${k}</span><span>${v}</span></div>`
-        ).join('')}
-        <div style="margin-top:10px; font-size:11px; opacity:0.6;">
-          ${tree.years.map(y => `${y.year}: ${y.months.length}个月`).join(' | ') || '暂无时间数据'}
+        <div class="stat-row"><span>当前插件</span><strong>${pluginName}</strong></div>
+        <div class="stat-row"><span>总记忆数</span><strong>${stats.total_memories || memories.length}</strong></div>
+        ${stats.total_entities ? `<div class="stat-row"><span>实体数</span><strong>${stats.total_entities}</strong></div>` : ''}
+        ${stats.total_relationships ? `<div class="stat-row"><span>关系数</span><strong>${stats.total_relationships}</strong></div>` : ''}
+        ${stats.memory_by_importance ? `
+          <div style="margin-top:8px; font-size:11px;">
+            <div class="stat-row"><span>🔴 高重要度</span><span>${stats.memory_by_importance.high || 0}</span></div>
+            <div class="stat-row"><span>🟡 中重要度</span><span>${stats.memory_by_importance.medium || 0}</span></div>
+            <div class="stat-row"><span>🟢 低重要度</span><span>${stats.memory_by_importance.low || 0}</span></div>
+          </div>
+        ` : ''}
+        <div style="margin-top:8px; font-size:10px; opacity:0.5;">
+          可用插件: ${(data.available_plugins || []).map(p => p.name).join(', ')}
         </div>
       `;
       
@@ -471,7 +582,10 @@
     return div.innerHTML;
   }
 
-  document.getElementById('refresh-memory').onclick = loadMemory;
+  document.getElementById('refresh-memory').onclick = () => {
+    loadPlugins();
+    loadMemory();
+  };
 
   // 添加记忆
   document.getElementById('add-memory').onclick = async () => {
@@ -519,8 +633,26 @@
     }
   };
 
-  // 页面加载时自动加载记忆
-  setTimeout(loadMemory, 500);
+  // 清空记忆
+  document.getElementById('clear-memory').onclick = async () => {
+    const memoryStatus = document.getElementById('memory-status');
+    if (!confirm('确定要清空当前插件的所有记忆吗？')) return;
+    
+    try {
+      memoryStatus.textContent = '⏳ 清空中...';
+      await api("/memory/clear", "POST");
+      memoryStatus.textContent = '✅ 记忆已清空';
+      loadMemory();
+    } catch (e) {
+      memoryStatus.textContent = '❌ 清空失败: ' + e.message;
+    }
+  };
+
+  // 页面加载时初始化
+  setTimeout(() => {
+    loadPlugins();
+    loadMemory();
+  }, 500);
 </script>
 </body>
 </html>
