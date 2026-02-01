@@ -1,8 +1,10 @@
 import os
+import sys
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional
 from agent.core import AgentCore
 from agent.store import MemoryStore, SettingsStore
 from memory_plugin_api import (
@@ -12,6 +14,11 @@ from memory_plugin_api import (
     DeleteMemoryRequest,
     SwitchPluginRequest,
     PluginConfigRequest
+)
+from conversations_api import (
+    get_conversations_list,
+    get_conversation_detail,
+    search_conversations
 )
 
 # Configure logging
@@ -34,7 +41,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+# Ensure data directory exists (will be created at runtime)
+# For packaged app, data goes to user's AppData; for dev, it's in backend/data
+if getattr(sys, 'frozen', False):
+    # Running as packaged executable
+    DATA_DIR = os.path.join(os.path.expanduser("~"), "AppData", "Local", "AURORA-Local-Agent")
+else:
+    # Running in development
+    DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+
 os.makedirs(DATA_DIR, exist_ok=True)
 
 settings = SettingsStore(os.path.join(DATA_DIR, "settings.json"))
@@ -95,6 +110,22 @@ def update_model_only(req: ModelUpdateReq):
     settings.set(current)
     print("[SETTINGS] Model updated successfully", flush=True)
     return {"ok": True, "model": req.model}
+
+@app.get("/settings/system-prompt")
+def get_system_prompt():
+    print("[SETTINGS] Getting system prompt", flush=True)
+    current = settings.get()
+    return {"system_prompt": current.get("system_prompt", "")}
+
+@app.post("/settings/system-prompt")
+def set_system_prompt(data: dict):
+    print(f"[SETTINGS] Updating system prompt", flush=True)
+    logger.info(f"System prompt updated")
+    current = settings.get()
+    current["system_prompt"] = data.get("system_prompt", "")
+    settings.set(current)
+    print("[SETTINGS] System prompt saved successfully", flush=True)
+    return {"ok": True}
 
 @app.post("/chat", response_model=ChatResp)
 def chat(req: ChatReq):
@@ -240,20 +271,58 @@ def get_memory_context(query: str = None, limit: int = 10):
     return context
 
 
-# --- 知识图谱（如果插件支持）---
+# --- Knowledge Graph (if plugin supports) ---
 
 @app.get("/memory/entities")
 def get_entities():
-    """获取实体列表"""
+    """Get entity list"""
     print("[MEMORY] Getting entities", flush=True)
     return {"entities": memory_service.get_entities()}
 
 
 @app.get("/memory/relationships")
 def get_relationships():
-    """获取关系列表"""
+    """Get relationship list"""
     print("[MEMORY] Getting relationships", flush=True)
     return {"relationships": memory_service.get_relationships()}
+
+
+# ==================== Conversations API ====================
+
+@app.get("/conversations")
+def list_conversations(query: Optional[str] = None, limit: Optional[int] = None):
+    """
+    Get list of conversations (titles only for performance)
+    Supports optional search query
+    If limit is not provided, returns all conversations
+    """
+    print(f"[CONVERSATIONS] Listing conversations (query={query}, limit={limit})", flush=True)
+    logger.info(f"Listing conversations: query={query}")
+    
+    if query:
+        results = search_conversations(query, limit if limit else 10000)
+    else:
+        all_convs = get_conversations_list()
+        results = all_convs if not limit else all_convs[:limit]
+    
+    return {"conversations": [r.model_dump() for r in results]}
+
+
+@app.get("/conversations/{conversation_id}")
+def get_conversation(conversation_id: str):
+    """
+    Get full conversation detail by ID (lazy load)
+    """
+    print(f"[CONVERSATIONS] Loading conversation: {conversation_id}", flush=True)
+    logger.info(f"Loading conversation: {conversation_id}")
+    
+    detail = get_conversation_detail(conversation_id)
+    
+    if not detail:
+        return {"error": "Conversation not found", "conversation_id": conversation_id}
+    
+    return detail.model_dump()
+
 
 if __name__ == "__main__":
     import uvicorn

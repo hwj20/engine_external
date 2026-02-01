@@ -24,7 +24,8 @@ class SettingsStore:
                 "provider": "openai_compatible",
                 "base_url": "",
                 "api_key": "",
-                "model": ""
+                "model": "",
+                "system_prompt": ""
             })
         else:
             print(f"[SettingsStore] Loading existing settings from {path}", flush=True)

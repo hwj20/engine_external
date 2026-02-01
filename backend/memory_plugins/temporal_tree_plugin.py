@@ -366,11 +366,11 @@ class TemporalTreePlugin(MemoryPluginBase):
                         })
                 tree_summary["years"].append(year_data)
         
-        # 最近记忆
+        # 最近记忆（无上限）
         all_events = [n for n in tree.nodes.values() if n.time_grain == "event"]
         all_events.sort(key=lambda x: x.timestamp, reverse=True)
         
-        for event in all_events[:20]:
+        for event in all_events:
             tree_summary["recent_memories"].append({
                 "id": event.id,
                 "content": event.content,

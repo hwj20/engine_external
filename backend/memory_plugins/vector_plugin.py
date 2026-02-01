@@ -462,7 +462,7 @@ class VectorMemoryPlugin(MemoryPluginBase):
     
     def get_visualization_data(self) -> Dict[str, Any]:
         """获取可视化数据"""
-        memories = self.get_recent_memories(limit=50)
+        memories = self.get_recent_memories(limit=10000)  # 无上限
         stats = self.get_stats()
         
         return {

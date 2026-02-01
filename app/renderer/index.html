@@ -30,23 +30,47 @@
     .muted { opacity:.75; font-size:12px; }
     
     /* Memory Panel Styles */
-    .memory-item { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06); border-radius: 10px; padding: 10px; margin-bottom: 8px; transition: all 0.2s; }
+    .memory-item { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06); border-radius: 8px; padding: 6px 8px; margin-bottom: 4px; transition: all 0.2s; }
     .memory-item:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.12); }
-    .memory-content { font-size: 13px; margin-bottom: 6px; line-height: 1.4; }
-    .memory-meta { font-size: 11px; opacity: 0.6; display: flex; gap: 8px; flex-wrap: wrap; }
-    .memory-tag { background: rgba(80,120,255,.2); padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+    .memory-content { font-size: 12px; margin-bottom: 3px; line-height: 1.3; }
+    .memory-meta { font-size: 10px; opacity: 0.6; display: flex; gap: 6px; flex-wrap: wrap; }
+    .memory-tag { background: rgba(80,120,255,.2); padding: 1px 4px; border-radius: 3px; font-size: 9px; }
     .memory-tag.emotion { background: rgba(255,100,100,.2); }
     .memory-tag.topic { background: rgba(100,200,100,.2); }
-    .entity-item { background: rgba(255,200,100,.1); border: 1px solid rgba(255,200,100,.2); border-radius: 8px; padding: 8px; margin-bottom: 6px; }
-    .entity-name { font-weight: 600; font-size: 13px; }
-    .entity-type { font-size: 11px; opacity: 0.6; }
-    .relation-item { font-size: 12px; padding: 6px 8px; background: rgba(100,200,255,.1); border-radius: 6px; margin-bottom: 4px; }
+    .entity-item { background: rgba(255,200,100,.1); border: 1px solid rgba(255,200,100,.2); border-radius: 6px; padding: 5px 6px; margin-bottom: 4px; }
+    .entity-name { font-weight: 600; font-size: 12px; }
+    .entity-type { font-size: 10px; opacity: 0.6; }
+    .relation-item { font-size: 11px; padding: 4px 6px; background: rgba(100,200,255,.1); border-radius: 4px; margin-bottom: 3px; }
     .tab-buttons { display: flex; gap: 6px; margin-bottom: 10px; }
     .tab-btn { flex: 1; text-align: center; padding: 8px; border-radius: 8px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); cursor: pointer; font-size: 12px; }
     .tab-btn.active { background: rgba(80,120,255,.2); border-color: rgba(80,120,255,.4); }
     .stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); font-size: 12px; }
-    .importance-bar { height: 4px; background: rgba(255,255,255,.1); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+    .importance-bar { height: 2px; background: rgba(255,255,255,.1); border-radius: 1px; overflow: hidden; margin-top: 2px; }
     .importance-fill { height: 100%; background: linear-gradient(90deg, #4080ff, #80c0ff); }
+    /* Modal window styles */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.7); z-index: 1000; align-items: center; justify-content: center; }
+    .modal.show { display: flex; }
+    .modal-content { background: #0b0f17; border: 1px solid rgba(255,255,255,.12); border-radius: 16px; width: 90%; height: 90%; max-width: 900px; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .modal-header h2 { margin: 0; font-size: 18px; font-weight: 700; }
+    .modal-close { cursor: pointer; font-size: 24px; opacity: 0.6; }
+    .modal-close:hover { opacity: 1; }
+    .modal-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 20px; }
+    /* Custom scrollbar styles (modal only) */
+    .modal-body::-webkit-scrollbar { width: 8px; }
+    .modal-body::-webkit-scrollbar-track { background: rgba(255,255,255,.04); border-radius: 4px; }
+    .modal-body::-webkit-scrollbar-thumb { background: rgba(80,120,255,.4); border-radius: 4px; }
+    .modal-body::-webkit-scrollbar-thumb:hover { background: rgba(80,120,255,.6); }
+    /* Conversation list styles */
+    .conversation-item { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+    .conversation-item:hover { background: rgba(80,120,255,.15); border-color: rgba(80,120,255,.3); }
+    .conversation-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .conversation-meta { font-size: 11px; opacity: 0.6; display: flex; gap: 12px; }
+    .conversation-preview { margin-top: 8px; padding: 10px; background: rgba(0,0,0,.2); border-radius: 8px; max-height: 300px; overflow-y: auto; }
+    .preview-message { padding: 8px 10px; margin-bottom: 6px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
+    .preview-message.user { background: rgba(80,120,255,.15); margin-left: 20%; }
+    .preview-message.assistant { background: rgba(255,255,255,.08); margin-right: 20%; }
+    .preview-message .role { font-size: 10px; opacity: 0.6; margin-bottom: 4px; text-transform: uppercase; }
   </style>
 </head>
 <body>
@@ -55,28 +79,28 @@
       <div style="font-weight:700;">AURORA Local Agent MVP</div>
       <div class="badge">Local-only • Backend: 127.0.0.1:8787 • Version <span id="ver"></span></div>
     </div>
-    <div class="badge">提示：先启动 backend，再打开聊天。</div>
+    <div class="badge">Tip: Start backend first, then open chat.</div>
   </header>
 
   <div class="wrap">
     <aside class="panel">
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" id="settings-toggle">
-          <div style="font-weight:700;">⚙️ Settings</div>
+          <div style="font-weight:700;">[SETTINGS] Settings</div>
           <span id="settings-arrow">▼</span>
         </div>
         <div id="settings-content" style="display:none; margin-top:10px;">
-          <div class="muted" style="margin-bottom:10px;">填入 OpenAI-compatible 的 base_url / api_key / model（只存本地）。</div>
+          <div class="muted" style="margin-bottom:10px;">Enter OpenAI-compatible base_url / api_key / model (stored locally only).</div>
 
           <label>Base URL (e.g. https://api.openai.com)</label>
           <input id="base_url" placeholder="https://api.openai.com" />
 
-          <label style="margin-top:10px;">API Key（留空则保留原有 key）</label>
-          <input id="api_key" type="password" placeholder="留空则不更新" />
+          <label style="margin-top:10px;">API Key (leave empty to keep existing key)</label>
+          <input id="api_key" type="password" placeholder="Leave empty to skip" />
 
           <label style="margin-top:10px;">Model</label>
           <select id="model" style="width:100%; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px;">
-            <option value="">-- 选择模型 --</option>
+            <option value="">-- Select Model --</option>
             <optgroup label="OpenAI">
               <option value="gpt-4o">gpt-4o</option>
               <option value="gpt-4o-mini">gpt-4o-mini</option>
@@ -94,15 +118,15 @@
               <option value="deepseek-chat">deepseek-chat</option>
               <option value="deepseek-reasoner">deepseek-reasoner</option>
             </optgroup>
-            <optgroup label="其他">
-              <option value="custom">自定义...</option>
+            <optgroup label="Other">
+              <option value="custom">Custom...
             </optgroup>
           </select>
-          <input id="model_custom" placeholder="输入自定义模型名称" style="display:none; margin-top:6px;" />
+          <input id="model_custom" placeholder="Enter custom model name" style="display:none; margin-top:6px;" />
 
           <div style="display:flex; gap:10px; margin-top:12px;">
             <button id="save">Save All</button>
-            <button id="save-model">仅更新模型</button>
+            <button id="save-model">Update Model Only</button>
             <button id="health">Health</button>
           </div>
         </div>
@@ -111,89 +135,159 @@
 
       <div class="card" style="margin-top:12px;">
         <div style="font-weight:700; margin-bottom:8px;">Cost Controls</div>
-        <div class="muted">输出长度硬限制：Chat≈220 tokens，Task≈400 tokens；上下文预算≈2200 tokens（字符近似）。</div>
+        <div class="muted">Output length hard limit: Chat~220 tokens, Task~400 tokens; Context budget~2200 tokens (char approx).</div>
       </div>
 
-      <!-- Memory Panel (可折叠) -->
+      <!-- System Prompt Panel -->
       <div class="card" style="margin-top:12px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" id="memory-toggle">
-          <div style="font-weight:700;">🧠 Memory</div>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <button id="refresh-memory" style="padding:4px 8px; font-size:10px;" onclick="event.stopPropagation();">刷新</button>
-            <span id="memory-arrow">▼</span>
-          </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight:700;">[SYSTEM] System Prompt</div>
         </div>
-        
-        <div id="memory-content" style="display:none; margin-top:10px;">
-          <!-- 插件选择 -->
-          <div style="margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,.08);">
-            <label style="font-size:11px; margin-bottom:4px;">🔌 记忆插件</label>
-            <select id="memory-plugin-select" style="width:100%; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:8px; font-size:12px;">
-              <option value="">加载中...</option>
-            </select>
-            <div id="plugin-info" class="muted" style="font-size:10px; padding:4px; margin-top:4px; background:rgba(255,255,255,.04); border-radius:4px;"></div>
-            <div id="plugin-features" style="margin-top:6px; display:flex; gap:4px; flex-wrap:wrap;"></div>
+        <button id="open-system-prompt-window" style="width:100%; margin-top:10px; padding:12px; font-size:14px;">Edit System Prompt</button>
+      </div>
+
+      <!-- Conversation History Panel -->
+      <div class="card" style="margin-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight:700;">[HISTORY] Chat History</div>
+        </div>
+        <button id="open-conversations-window" style="width:100%; margin-top:10px; padding:12px; font-size:14px;">Load Conversation History</button>
+      </div>
+
+      <!-- Memory Panel (Modal/Popup Mode) -->
+      <div class="card" style="margin-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight:700;">[MEMORY] Memory</div>
+        </div>
+        <button id="open-memory-window" style="width:100%; margin-top:10px; padding:12px; font-size:14px;">Open Memory Window</button>
+      </div>
+    </aside>
+
+    <!-- System Prompt Modal Window -->
+    <div id="system-prompt-modal" class="modal">
+      <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+          <h2>[SYSTEM] System Prompt</h2>
+          <span class="modal-close" id="close-system-prompt-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+          <div class="muted" style="margin-bottom:12px; font-size:12px;">Customize the system prompt to guide AI behavior and personality</div>
+          
+          <label style="font-size:12px; margin-bottom:6px; display:block;">System Prompt</label>
+          <textarea id="system-prompt-input" placeholder="Enter system prompt here..." style="width:100%; min-height:300px; max-height:500px; font-size:13px; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:12px; outline:none; font-family: monospace; resize: vertical;"></textarea>
+          
+          <div style="display:flex; gap:10px; margin-top:12px;">
+            <button id="save-system-prompt" style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(80,120,255,.2); color:#e7eefc; font-size:13px; cursor:pointer;">Save Prompt</button>
+            <button id="reset-system-prompt" style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.08); color:#e7eefc; font-size:13px; cursor:pointer;">Clear</button>
           </div>
           
-          <!-- Tab 切换 -->
+          <div id="system-prompt-status" class="muted" style="margin-top:10px; font-size:11px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conversations Modal Window -->
+    <div id="conversations-modal" class="modal">
+      <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+          <h2>[HISTORY] Conversation History</h2>
+          <span class="modal-close" id="close-conversations-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+          <!-- Search bar -->
+          <div style="margin-bottom:12px;">
+            <input id="conversation-search" type="text" placeholder="Search conversations..." style="width:100%; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px; outline:none;" />
+          </div>
+          
+          <!-- Conversation list -->
+          <div id="conversation-list" style="max-height: 60vh; overflow-y: auto;">
+            <div class="muted" style="text-align:center; padding:30px;">Loading conversations...</div>
+          </div>
+          
+          <!-- Status -->
+          <div id="conversation-status" class="muted" style="margin-top:10px; font-size:11px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Memory Modal Window -->
+    <div id="memory-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>[MEMORY] Memory</h2>
+          <span class="modal-close" id="close-memory-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+          <!-- Plugin Selection -->
+          <div style="margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,.08);">
+            <label style="font-size:12px; margin-bottom:4px; display:block;">[PLUGIN] Memory Plugin</label>
+            <select id="memory-plugin-select" style="width:100%; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:8px; font-size:12px; margin-bottom:8px;">
+              <option value="">Loading...</option>
+            </select>
+            <div id="plugin-info" class="muted" style="font-size:11px; padding:6px; background:rgba(255,255,255,.04); border-radius:4px; margin-bottom:8px;"></div>
+            <div id="plugin-features" style="display:flex; gap:4px; flex-wrap:wrap;"></div>
+          </div>
+          
+          <!-- Tab Switching -->
           <div class="tab-buttons">
-            <div class="tab-btn active" data-tab="memories">记忆</div>
-            <div class="tab-btn" data-tab="entities">实体</div>
-            <div class="tab-btn" data-tab="stats">统计</div>
+            <div class="tab-btn active" data-tab="memories">Memories</div>
+            <div class="tab-btn" data-tab="entities">Entities</div>
+            <div class="tab-btn" data-tab="stats">Stats</div>
+            <button id="refresh-memory" style="padding:8px 12px; font-size:12px; flex:0.5;">Refresh</button>
           </div>
 
-          <!-- 记忆列表 -->
+          <!-- Memory List -->
           <div id="memories-tab" class="tab-content">
-            <div id="memory-list" style="max-height: 250px; overflow:auto;">
-              <div class="muted" style="text-align:center; padding:15px;">点击刷新加载记忆...</div>
+            <div id="memory-list">
+              <div class="muted" style="text-align:center; padding:30px;">Click refresh to load memories...</div>
             </div>
           </div>
 
-          <!-- 实体列表 -->
+          <!-- Entity List -->
           <div id="entities-tab" class="tab-content" style="display:none;">
-            <div id="entity-list" style="max-height: 150px; overflow:auto;">
-              <div class="muted" style="text-align:center; padding:15px;">暂无实体...</div>
+            <div id="entity-list">
+              <div class="muted" style="text-align:center; padding:30px;">No entities found...</div>
             </div>
-            <div style="margin-top:8px;">
-              <div style="font-weight:600; font-size:11px; margin-bottom:4px;">关系网络</div>
-              <div id="relation-list" style="max-height: 100px; overflow:auto;">
-                <div class="muted" style="text-align:center; padding:8px;">暂无关系...</div>
+            <div style="margin-top:12px;">
+              <div style="font-weight:600; font-size:12px; margin-bottom:8px;">Knowledge Graph</div>
+              <div id="relation-list">
+                <div class="muted" style="text-align:center; padding:15px;">No relationships...</div>
               </div>
             </div>
           </div>
 
-          <!-- 统计信息 -->
+          <!-- Statistics -->
           <div id="stats-tab" class="tab-content" style="display:none;">
             <div id="memory-stats">
-              <div class="muted" style="text-align:center; padding:15px;">加载中...</div>
+              <div class="muted" style="text-align:center; padding:30px;">Loading...</div>
             </div>
           </div>
           
-          <!-- 添加记忆 -->
-          <div style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,.08);">
-            <div style="font-weight:600; font-size:12px; margin-bottom:6px;">添加记忆</div>
-            <textarea id="new-memory" placeholder="输入记忆内容..." style="min-height:50px; font-size:12px;"></textarea>
-            <div style="display:flex; gap:4px; margin-top:6px;">
-              <input id="memory-tags" placeholder="标签（逗号分隔）" style="flex:1; padding:6px; font-size:11px;" />
-              <input id="memory-importance" type="number" min="0" max="1" step="0.1" value="0.5" style="width:50px; padding:6px; font-size:11px;" />
+          <!-- Add Memory -->
+          <div style="margin-top:16px; padding-top:12px; border-top:1px solid rgba(255,255,255,.08);">
+            <div style="font-weight:600; font-size:13px; margin-bottom:8px;">Add Memory</div>
+            <textarea id="new-memory" placeholder="Enter memory content (split by newline)..." style="width:100%; min-height:60px; font-size:12px; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:8px; outline:none;"></textarea>
+            <div style="display:flex; gap:6px; margin-top:8px;">
+              <input id="memory-tags" placeholder="Tags (comma separated)" style="flex:1; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; font-size:12px; outline:none;" />
+              <input id="memory-importance" type="number" min="0" max="1" step="0.1" value="0.5" style="width:70px; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; font-size:12px; outline:none;" />
             </div>
-            <div style="display:flex; gap:4px; margin-top:6px;">
-              <button id="add-memory" style="flex:1; padding:6px; font-size:11px;">添加</button>
-              <button id="add-demo" style="flex:1; padding:6px; font-size:11px;">演示</button>
-              <button id="clear-memory" style="padding:6px; font-size:11px; background:rgba(255,80,80,.2);">清空</button>
+            <div style="display:flex; gap:6px; margin-top:8px;">
+              <button id="add-memory" style="flex:1; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(80,120,255,.2); color:#e7eefc; font-size:12px; cursor:pointer;">Add</button>
+              <button id="add-demo" style="flex:1; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.08); color:#e7eefc; font-size:12px; cursor:pointer;">Demo</button>
+              <button id="clear-memory" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(255,80,80,.2); color:#e7eefc; font-size:12px; cursor:pointer;">Clear</button>
             </div>
-            <div id="memory-status" class="muted" style="margin-top:6px; font-size:10px;"></div>
+            <div id="memory-status" class="muted" style="margin-top:8px; font-size:11px;"></div>
           </div>
         </div>
       </div>
-    </aside>
+    </div>
 
     <main class="main">
       <div class="chatlog" id="chatlog"></div>
 
       <div class="card">
         <label>Message</label>
-        <textarea id="msg" placeholder="跟我说点什么…（先启动 backend）"></textarea>
+        <textarea id="msg" placeholder="Say something... (start backend first)"></textarea>
         <div style="display:flex; gap:10px; margin-top:10px;">
           <button id="send">Send</button>
           <button id="clear">Clear</button>
@@ -209,7 +303,7 @@
   const status = document.getElementById("status");
   const meta = document.getElementById("meta");
 
-  // Settings 折叠/展开
+  // Settings collapse/expand toggle
   document.getElementById("settings-toggle").onclick = () => {
     const content = document.getElementById("settings-content");
     const arrow = document.getElementById("settings-arrow");
@@ -222,19 +316,6 @@
     }
   };
 
-  // Memory 折叠/展开
-  document.getElementById("memory-toggle").onclick = () => {
-    const content = document.getElementById("memory-content");
-    const arrow = document.getElementById("memory-arrow");
-    if (content.style.display === "none") {
-      content.style.display = "block";
-      arrow.textContent = "▲";
-      loadMemory(); // 展开时自动加载
-    } else {
-      content.style.display = "none";
-      arrow.textContent = "▼";
-    }
-  };
 
   function addBubble(text, who) {
     const div = document.createElement("div");
@@ -244,6 +325,7 @@
     chatlog.scrollTop = chatlog.scrollHeight;
   }
 
+  // API function to call backend endpoints
   async function api(path, method="GET", body=null) {
     const url = "http://127.0.0.1:8787" + path;
     const opt = { method, headers: { "Content-Type": "application/json" } };
@@ -258,11 +340,11 @@
       const s = await api("/settings");
       document.getElementById("base_url").value = s.base_url || "";
       document.getElementById("api_key").value = "";
-      // 设置模型下拉菜单
+      // Set model dropdown menu
       const modelSelect = document.getElementById("model");
       const modelCustom = document.getElementById("model_custom");
       const savedModel = s.model || "";
-      // 检查是否是预设模型
+      // Check if preset model
       let found = false;
       for (let opt of modelSelect.options) {
         if (opt.value === savedModel) {
@@ -276,13 +358,13 @@
         modelCustom.style.display = "block";
         modelCustom.value = savedModel;
       }
-      status.textContent = "✅ 已加载设置 (api_key 已隐藏)";
+      status.textContent = "Loaded settings (api_key hidden)";
     } catch (e) {
-      status.textContent = "❌ 后端未连接，请先启动后端";
+      status.textContent = "Backend not connected. Please start the backend.";
     }
   }
 
-  // 模型下拉菜单：选择"自定义"时显示输入框
+  // Model dropdown: show input when 'custom' is selected
   document.getElementById("model").onchange = () => {
     const modelSelect = document.getElementById("model");
     const modelCustom = document.getElementById("model_custom");
@@ -295,7 +377,7 @@
     }
   };
 
-  // 获取当前选择的模型
+  // Get currently selected model
   function getSelectedModel() {
     const modelSelect = document.getElementById("model");
     const modelCustom = document.getElementById("model_custom");
@@ -312,25 +394,24 @@
       const api_key = document.getElementById("api_key").value.trim();
       const model = getSelectedModel();
       if (!base_url || !model) {
-        status.textContent = "❌ 请填入 Base URL 和 Model";
+        status.textContent = "Please fill in Base URL and Model";
         return;
       }
-      status.textContent = "⏳ 保存中...";
-      // 如果 api_key 为空，先获取旧的
+      status.textContent = "Saving...";
+      // If api_key is empty, get the old one
       let finalApiKey = api_key;
       if (!finalApiKey) {
         const old = await api("/settings");
         finalApiKey = old.api_key === "********" ? "" : old.api_key;
         if (!finalApiKey) {
-          // 需要从后端获取真实key，这里用特殊处理
-          status.textContent = "❌ 首次设置需要填入 API Key";
+          status.textContent = "First setup requires filling in API Key";
           return;
         }
       }
       await api("/settings", "POST", { base_url, api_key: finalApiKey || api_key, model, provider: "openai_compatible" });
-      status.textContent = "✅ 全部保存成功！";
+      status.textContent = "All settings saved successfully!";
     } catch (e) {
-      status.textContent = "❌ 保存失败: " + e.message;
+      status.textContent = "Save failed: " + e.message;
     }
   };
 
@@ -339,56 +420,56 @@
     try {
       const model = getSelectedModel();
       if (!model) {
-        status.textContent = "❌ 请选择模型";
+        status.textContent = "Please select a model";
         return;
       }
-      status.textContent = "⏳ 更新模型中...";
+      status.textContent = "Updating model...";
       await api("/settings/model", "POST", { model });
-      status.textContent = "✅ 模型已更新为: " + model;
+      status.textContent = "Model updated to: " + model;
     } catch (e) {
-      status.textContent = "❌ 更新模型失败: " + e.message;
+      status.textContent = "Failed to update model: " + e.message;
     }
   };
 
   document.getElementById("health").onclick = async () => {
     const status = document.getElementById("status");
     try {
-      status.textContent = "⏳ 检查中...";
+      status.textContent = "Checking...";
       const result = await api("/health");
-      status.textContent = "✅ 后端正常: " + JSON.stringify(result);
+      status.textContent = "Backend OK: " + JSON.stringify(result);
     } catch (e) {
-      status.textContent = "❌ 后端连接失败: " + e.message;
+      status.textContent = "Backend connection failed: " + e.message;
     }
   };
 
-  // 发送消息函数
+  // Send message function
   async function sendMessage() {
     const msg = document.getElementById("msg").value.trim();
     if (!msg) return;
     document.getElementById("msg").value = "";
     addBubble(msg, "user");
-    meta.textContent = "⏳ 等待回复...";
+    meta.textContent = "Waiting for reply...";
     try {
       const out = await api("/chat", "POST", { user_message: msg, session_id: "default" });
       addBubble(out.assistant_message, "assistant");
-      meta.textContent = `✅ 模式=${out.mode} • 内存卡片=${out.used_memory_cards.length}`;
+      meta.textContent = `Mode=${out.mode} • Memory cards=${out.used_memory_cards.length}`;
     } catch (e) {
-      addBubble("❌ 后端错误: " + e.message, "assistant");
-      meta.textContent = "❌ 请求失败";
+      addBubble("Backend error: " + e.message, "assistant");
+      meta.textContent = "Request failed";
     }
   }
 
-  // Send 按钮点击
+  // Send button click
   document.getElementById("send").onclick = sendMessage;
 
-  // 输入框键盘事件：Enter 发送，Shift+Enter 换行
+  // Input box keyboard event: Enter to send, Shift+Enter to newline
   document.getElementById("msg").onkeydown = (e) => {
     if (e.key === "Enter") {
       if (e.shiftKey) {
-        // Shift+Enter：换行（默认行为）
+        // Shift+Enter: newline (default behavior)
         return;
       } else {
-        // Enter：发送
+        // Enter: send
         e.preventDefault();
         sendMessage();
       }
@@ -397,23 +478,294 @@
 
   document.getElementById("clear").onclick = async () => {
     chatlog.innerHTML = "";
-    meta.textContent = "⏳ 清空中...";
+    meta.textContent = "Clearing...";
     try {
       await api("/clear-history", "POST", { session_id: "default" });
-      meta.textContent = "✅ 对话历史已清空";
+      meta.textContent = "Chat history cleared";
     } catch (e) {
-      meta.textContent = "⚠️ 前端已清空，但后端历史清空失败";
+      meta.textContent = "Frontend cleared, backend clear failed";
     }
   };
 
   loadSettings();
+
+  // ==================== System Prompt Modal Window ====================
+  const systemPromptModal = document.getElementById('system-prompt-modal');
+  const openSystemPromptBtn = document.getElementById('open-system-prompt-window');
+  const closeSystemPromptBtn = document.getElementById('close-system-prompt-modal');
+  const systemPromptInput = document.getElementById('system-prompt-input');
+  const saveSystemPromptBtn = document.getElementById('save-system-prompt');
+  const resetSystemPromptBtn = document.getElementById('reset-system-prompt');
+  const systemPromptStatus = document.getElementById('system-prompt-status');
+  
+  // Open system prompt window
+  openSystemPromptBtn.onclick = () => {
+    systemPromptModal.classList.add('show');
+    loadSystemPrompt();
+  };
+  
+  // Close system prompt window
+  closeSystemPromptBtn.onclick = () => {
+    systemPromptModal.classList.remove('show');
+  };
+  
+  // Click modal background to close
+  systemPromptModal.onclick = (e) => {
+    if (e.target === systemPromptModal) {
+      systemPromptModal.classList.remove('show');
+    }
+  };
+  
+  // Load system prompt
+  async function loadSystemPrompt() {
+    try {
+      const data = await api('/settings/system-prompt');
+      systemPromptInput.value = data.system_prompt || '';
+      systemPromptStatus.textContent = 'System prompt loaded';
+    } catch (e) {
+      systemPromptStatus.textContent = 'Failed to load: ' + e.message;
+    }
+  }
+  
+  // Save system prompt
+  saveSystemPromptBtn.onclick = async () => {
+    try {
+      systemPromptStatus.textContent = 'Saving...';
+      await api('/settings/system-prompt', 'POST', {
+        system_prompt: systemPromptInput.value
+      });
+      systemPromptStatus.textContent = 'System prompt saved successfully!';
+    } catch (e) {
+      systemPromptStatus.textContent = 'Failed to save: ' + e.message;
+    }
+  };
+  
+  // Reset system prompt
+  resetSystemPromptBtn.onclick = () => {
+    if (confirm('Clear system prompt?')) {
+      systemPromptInput.value = '';
+      systemPromptStatus.textContent = 'Cleared (not saved yet)';
+    }
+  };
+
+  // ==================== Conversations Modal Window ====================
+  const conversationsModal = document.getElementById('conversations-modal');
+  const openConversationsBtn = document.getElementById('open-conversations-window');
+  const closeConversationsBtn = document.getElementById('close-conversations-modal');
+  const conversationSearch = document.getElementById('conversation-search');
+  
+  let conversationsList = [];
+  let selectedConversationId = null;
+  
+  // Open conversations window
+  openConversationsBtn.onclick = () => {
+    conversationsModal.classList.add('show');
+    loadConversationsList();
+  };
+  
+  // Close conversations window
+  closeConversationsBtn.onclick = () => {
+    conversationsModal.classList.remove('show');
+  };
+  
+  // Click modal background to close
+  conversationsModal.onclick = (e) => {
+    if (e.target === conversationsModal) {
+      conversationsModal.classList.remove('show');
+    }
+  };
+  
+  // Search conversations
+  let searchTimeout = null;
+  conversationSearch.oninput = () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      loadConversationsList(conversationSearch.value.trim());
+    }, 300);
+  };
+  
+  // Load conversations list
+  async function loadConversationsList(query = '') {
+    const listEl = document.getElementById('conversation-list');
+    const statusEl = document.getElementById('conversation-status');
+    
+    try {
+      listEl.innerHTML = '<div class="muted" style="text-align:center; padding:30px;">Loading...</div>';
+      
+      const url = query ? `/conversations?query=${encodeURIComponent(query)}` : '/conversations';
+      const data = await api(url);
+      conversationsList = data.conversations || [];
+      
+      if (conversationsList.length === 0) {
+        listEl.innerHTML = '<div class="muted" style="text-align:center; padding:30px;">No conversations found</div>';
+        statusEl.textContent = '';
+        return;
+      }
+      
+      listEl.innerHTML = conversationsList.map(conv => `
+        <div class="conversation-item" data-id="${conv.conversation_id}">
+          <div class="conversation-title">${escapeHtml(conv.title)}</div>
+          <div class="conversation-meta">
+            <span>Messages: ${conv.message_count}</span>
+            <span>${conv.update_time ? formatDate(conv.update_time) : 'Unknown date'}</span>
+          </div>
+        </div>
+      `).join('');
+      
+      statusEl.textContent = `Found ${conversationsList.length} conversations`;
+      
+      // Add click handlers
+      listEl.querySelectorAll('.conversation-item').forEach(item => {
+        item.onclick = () => selectConversation(item.dataset.id);
+      });
+      
+    } catch (e) {
+      listEl.innerHTML = `<div class="muted" style="text-align:center; padding:30px;">Failed to load: ${e.message}</div>`;
+      statusEl.textContent = 'Error loading conversations';
+    }
+  }
+  
+  // Format timestamp to readable date
+  function formatDate(timestamp) {
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+  
+  // Select and load a conversation
+  async function selectConversation(conversationId) {
+    const statusEl = document.getElementById('conversation-status');
+    const listEl = document.getElementById('conversation-list');
+    
+    // Highlight selected item
+    listEl.querySelectorAll('.conversation-item').forEach(item => {
+      item.style.borderColor = item.dataset.id === conversationId 
+        ? 'rgba(80,120,255,.6)' 
+        : 'rgba(255,255,255,.08)';
+    });
+    
+    try {
+      statusEl.textContent = 'Loading conversation...';
+      
+      const data = await api(`/conversations/${conversationId}`);
+      
+      if (data.error) {
+        statusEl.textContent = data.error;
+        return;
+      }
+      
+      selectedConversationId = conversationId;
+      
+      // Show preview of messages
+      const selectedItem = listEl.querySelector(`[data-id="${conversationId}"]`);
+      
+      // Remove existing preview
+      const existingPreview = listEl.querySelector('.conversation-preview');
+      if (existingPreview) {
+        existingPreview.remove();
+      }
+      
+      // Add preview below selected item
+      const previewHtml = `
+        <div class="conversation-preview">
+          <div style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+            <span class="muted">${data.messages.length} messages</span>
+            <button id="load-to-chat" style="padding:6px 12px; font-size:12px; background:rgba(80,120,255,.3); border-color:rgba(80,120,255,.5);">Load to Chat</button>
+          </div>
+          ${data.messages.slice(0, 10).map(msg => `
+            <div class="preview-message ${msg.role}">
+              <div class="role">${msg.role}</div>
+              <div>${escapeHtml(msg.content.substring(0, 300))}${msg.content.length > 300 ? '...' : ''}</div>
+            </div>
+          `).join('')}
+          ${data.messages.length > 10 ? `<div class="muted" style="text-align:center; padding:10px;">... and ${data.messages.length - 10} more messages</div>` : ''}
+        </div>
+      `;
+      
+      selectedItem.insertAdjacentHTML('afterend', previewHtml);
+      
+      // Add load to chat handler
+      document.getElementById('load-to-chat').onclick = () => {
+        loadConversationToChat(data);
+      };
+      
+      statusEl.textContent = `Loaded: ${data.title}`;
+      
+    } catch (e) {
+      statusEl.textContent = `Failed to load: ${e.message}`;
+    }
+  }
+  
+  // Load conversation to main chat
+  function loadConversationToChat(conversationData) {
+    // Clear current chat
+    chatlog.innerHTML = '';
+    
+    // Add messages to chat
+    conversationData.messages.forEach(msg => {
+      if (msg.role === 'user' || msg.role === 'assistant') {
+        addBubble(msg.content, msg.role === 'user' ? 'user' : 'assistant');
+      }
+    });
+    
+    // Close modal
+    conversationsModal.classList.remove('show');
+    
+    // Update meta
+    meta.textContent = `Loaded conversation: ${conversationData.title} (${conversationData.messages.length} messages)`;
+  }
+
+  // ==================== Memory Modal Window ====================
+  // Open/close handlers for memory modal window
+  const memoryModal = document.getElementById('memory-modal');
+  const openMemoryBtn = document.getElementById('open-memory-window');
+  const closeMemoryBtn = document.getElementById('close-memory-modal');
+  
+  // Open memory window
+  openMemoryBtn.onclick = () => {
+    memoryModal.classList.add('show');
+    loadPlugins();
+    loadMemory();
+  };
+  
+  // Close memory window
+  closeMemoryBtn.onclick = () => {
+    memoryModal.classList.remove('show');
+  };
+  
+  // Click modal background to close
+  memoryModal.onclick = (e) => {
+    if (e.target === memoryModal) {
+      memoryModal.classList.remove('show');
+    }
+  };
+  
+  // ESC key to close modals
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (memoryModal.classList.contains('show')) {
+        memoryModal.classList.remove('show');
+      }
+      if (conversationsModal.classList.contains('show')) {
+        conversationsModal.classList.remove('show');
+      }
+      if (systemPromptModal.classList.contains('show')) {
+        systemPromptModal.classList.remove('show');
+      }
+    }
+  });
 
   // ==================== Memory Plugin System ====================
   
   let currentPluginId = null;
   let availablePlugins = [];
   
-  // Tab 切换
+  // Tab switching functionality
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.onclick = () => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -423,36 +775,36 @@
     };
   });
 
-  // 加载可用插件列表
+  // Load available plugins list
   async function loadPlugins() {
     const select = document.getElementById('memory-plugin-select');
     const pluginInfo = document.getElementById('plugin-info');
     const pluginFeatures = document.getElementById('plugin-features');
     
     try {
-      // 获取可用插件
+      // Get available plugins
       const pluginsRes = await api("/memory/plugins");
       availablePlugins = pluginsRes.plugins || [];
       
-      // 获取当前激活的插件
+      // Get currently active plugin
       const activeRes = await api("/memory/plugins/active");
       currentPluginId = activeRes.id;
       
-      // 填充下拉菜单
+      // Populate dropdown menu
       select.innerHTML = availablePlugins.map(p => 
         `<option value="${p.id}" ${p.id === currentPluginId ? 'selected' : ''}>${p.name}</option>`
       ).join('');
       
-      // 显示当前插件信息
+      // Display current plugin info
       updatePluginInfo(currentPluginId);
       
     } catch (e) {
-      select.innerHTML = '<option value="">❌ 加载失败</option>';
-      pluginInfo.textContent = '无法连接到后端';
+      select.innerHTML = '<option value="">Failed to load</option>';
+      pluginInfo.textContent = 'Unable to connect to backend';
     }
   }
   
-  // 更新插件信息显示
+  // Update plugin info display
   function updatePluginInfo(pluginId) {
     const plugin = availablePlugins.find(p => p.id === pluginId);
     const pluginInfo = document.getElementById('plugin-info');
@@ -464,38 +816,38 @@
         ${plugin.description}
       `;
       
-      // 显示功能标签
+      // Display feature tags
       const features = [];
-      if (plugin.supports_vector_search) features.push('<span class="memory-tag" style="background:rgba(100,200,255,.2);">向量搜索</span>');
-      if (plugin.supports_graph) features.push('<span class="memory-tag" style="background:rgba(255,200,100,.2);">知识图谱</span>');
-      if (plugin.supports_temporal) features.push('<span class="memory-tag" style="background:rgba(100,255,100,.2);">时间检索</span>');
+      if (plugin.supports_vector_search) features.push('<span class="memory-tag" style="background:rgba(100,200,255,.2);">Vector Search</span>');
+      if (plugin.supports_graph) features.push('<span class="memory-tag" style="background:rgba(255,200,100,.2);">Knowledge Graph</span>');
+      if (plugin.supports_temporal) features.push('<span class="memory-tag" style="background:rgba(100,255,100,.2);">Temporal Retrieval</span>');
       
       pluginFeatures.innerHTML = features.join('');
     }
   }
   
-  // 切换插件
+  // Switch plugin handler
   document.getElementById('memory-plugin-select').onchange = async (e) => {
     const newPluginId = e.target.value;
     const memoryStatus = document.getElementById('memory-status');
     
     if (newPluginId && newPluginId !== currentPluginId) {
       try {
-        memoryStatus.textContent = `⏳ 切换到 ${newPluginId}...`;
+        memoryStatus.textContent = `Switching to ${newPluginId}...`;
         await api("/memory/plugins/switch", "POST", { plugin_id: newPluginId });
         currentPluginId = newPluginId;
         updatePluginInfo(newPluginId);
-        memoryStatus.textContent = `✅ 已切换到 ${availablePlugins.find(p => p.id === newPluginId)?.name || newPluginId}`;
+        memoryStatus.textContent = `Switched to ${availablePlugins.find(p => p.id === newPluginId)?.name || newPluginId}`;
         loadMemory();
       } catch (e) {
-        memoryStatus.textContent = `❌ 切换失败: ${e.message}`;
-        // 恢复选择
+        memoryStatus.textContent = `Switch failed: ${e.message}`;
+        // Restore selection
         document.getElementById('memory-plugin-select').value = currentPluginId;
       }
     }
   };
 
-  // 刷新记忆
+  // Load and display memories
   async function loadMemory() {
     const memoryList = document.getElementById('memory-list');
     const entityList = document.getElementById('entity-list');
@@ -503,10 +855,10 @@
     const memoryStats = document.getElementById('memory-stats');
     
     try {
-      // 使用新的可视化 API
+      // Use visualization API
       const data = await api("/memory/visualization");
       
-      // 显示记忆列表
+      // Display memory list
       const memories = data.recent_memories || (data.memory_tree?.recent_memories) || [];
       
       if (memories.length > 0) {
@@ -515,9 +867,9 @@
             <div class="memory-content">${escapeHtml(m.content)}</div>
             <div class="importance-bar"><div class="importance-fill" style="width:${((m.effective_importance || m.importance) * 100).toFixed(0)}%"></div></div>
             <div class="memory-meta">
-              <span>📅 ${new Date(m.timestamp).toLocaleString('zh-CN')}</span>
-              <span>⭐ ${((m.effective_importance || m.importance) * 100).toFixed(0)}%</span>
-              ${m.mention_count > 0 ? `<span>💬 ${m.mention_count}次</span>` : ''}
+              <span>Date: ${new Date(m.timestamp).toLocaleString('en-US')}</span>
+              <span>Importance: ${((m.effective_importance || m.importance) * 100).toFixed(0)}%</span>
+              ${m.mention_count > 0 ? `<span>Mentions: ${m.mention_count}</span>` : ''}
             </div>
             <div style="margin-top:4px;">
               ${(m.emotion_tags || []).map(t => `<span class="memory-tag emotion">${t}</span>`).join('')}
@@ -526,10 +878,10 @@
           </div>
         `).join('');
       } else {
-        memoryList.innerHTML = '<div class="muted" style="text-align:center; padding:20px;">暂无记忆，试试添加演示数据</div>';
+        memoryList.innerHTML = '<div class="muted" style="text-align:center; padding:20px;">No memories found. Try adding demo data.</div>';
       }
       
-      // 显示实体（如果插件支持）
+      // Display entities (if plugin supports)
       const entities = data.knowledge_graph?.entities || [];
       const plugin = availablePlugins.find(p => p.id === currentPluginId);
       
@@ -537,16 +889,16 @@
         entityList.innerHTML = entities.map(e => `
           <div class="entity-item">
             <div class="entity-name">${escapeHtml(e.name)}</div>
-            <div class="entity-type">${e.type} • 重要度: ${(e.importance * 100).toFixed(0)}%</div>
+            <div class="entity-type">${e.type} • Importance: ${(e.importance * 100).toFixed(0)}%</div>
           </div>
         `).join('');
       } else if (!plugin?.supports_graph) {
-        entityList.innerHTML = '<div class="muted" style="text-align:center; padding:10px;">当前插件不支持知识图谱</div>';
+        entityList.innerHTML = '<div class="muted" style="text-align:center; padding:10px;">Current plugin does not support knowledge graph</div>';
       } else {
-        entityList.innerHTML = '<div class="muted" style="text-align:center; padding:10px;">暂无实体</div>';
+        entityList.innerHTML = '<div class="muted" style="text-align:center; padding:10px;">No entities found</div>';
       }
       
-      // 显示关系
+      // Display relationships
       const relationships = data.knowledge_graph?.relationships || [];
       if (relationships.length > 0) {
         relationList.innerHTML = relationships.map(r => `
@@ -555,33 +907,33 @@
           </div>
         `).join('');
       } else {
-        relationList.innerHTML = '<div class="muted" style="text-align:center; padding:10px;">暂无关系</div>';
+        relationList.innerHTML = '<div class="muted" style="text-align:center; padding:10px;">No relationships</div>';
       }
       
-      // 统计信息
+      // Statistics info
       const stats = data.stats || {};
       const activePlugin = data.active_plugin || currentPluginId;
       const pluginName = availablePlugins.find(p => p.id === activePlugin)?.name || activePlugin;
       
       memoryStats.innerHTML = `
-        <div class="stat-row"><span>当前插件</span><strong>${pluginName}</strong></div>
-        <div class="stat-row"><span>总记忆数</span><strong>${stats.total_memories || memories.length}</strong></div>
-        ${stats.total_entities ? `<div class="stat-row"><span>实体数</span><strong>${stats.total_entities}</strong></div>` : ''}
-        ${stats.total_relationships ? `<div class="stat-row"><span>关系数</span><strong>${stats.total_relationships}</strong></div>` : ''}
+        <div class="stat-row"><span>Current Plugin</span><strong>${pluginName}</strong></div>
+        <div class="stat-row"><span>Total Memories</span><strong>${stats.total_memories || memories.length}</strong></div>
+        ${stats.total_entities ? `<div class="stat-row"><span>Entities</span><strong>${stats.total_entities}</strong></div>` : ''}
+        ${stats.total_relationships ? `<div class="stat-row"><span>Relationships</span><strong>${stats.total_relationships}</strong></div>` : ''}
         ${stats.memory_by_importance ? `
           <div style="margin-top:8px; font-size:11px;">
-            <div class="stat-row"><span>🔴 高重要度</span><span>${stats.memory_by_importance.high || 0}</span></div>
-            <div class="stat-row"><span>🟡 中重要度</span><span>${stats.memory_by_importance.medium || 0}</span></div>
-            <div class="stat-row"><span>🟢 低重要度</span><span>${stats.memory_by_importance.low || 0}</span></div>
+            <div class="stat-row"><span>High Importance</span><span>${stats.memory_by_importance.high || 0}</span></div>
+            <div class="stat-row"><span>Medium Importance</span><span>${stats.memory_by_importance.medium || 0}</span></div>
+            <div class="stat-row"><span>Low Importance</span><span>${stats.memory_by_importance.low || 0}</span></div>
           </div>
         ` : ''}
         <div style="margin-top:8px; font-size:10px; opacity:0.5;">
-          可用插件: ${(data.available_plugins || []).map(p => p.name).join(', ')}
+          Available Plugins: ${(data.available_plugins || []).map(p => p.name).join(', ')}
         </div>
       `;
       
     } catch (e) {
-      memoryList.innerHTML = `<div class="muted" style="text-align:center; padding:20px;">❌ 加载失败: ${e.message}</div>`;
+      memoryList.innerHTML = `<div class="muted" style="text-align:center; padding:20px;">Failed to load: ${e.message}</div>`;
     }
   }
 
@@ -596,68 +948,83 @@
     loadMemory();
   };
 
-  // 添加记忆
+  // Add memory handler (supports newline-separated entries)
   document.getElementById('add-memory').onclick = async () => {
     const memoryStatus = document.getElementById('memory-status');
-    const content = document.getElementById('new-memory').value.trim();
+    const rawContent = document.getElementById('new-memory').value.trim();
     const tags = document.getElementById('memory-tags').value.trim();
     const importance = parseFloat(document.getElementById('memory-importance').value) || 0.5;
     
-    if (!content) {
-      memoryStatus.textContent = '❌ 请输入记忆内容';
+    if (!rawContent) {
+      memoryStatus.textContent = 'Please enter memory content';
+      return;
+    }
+    
+    // Split content by newline
+    const contents = rawContent
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+    
+    if (contents.length === 0) {
+      memoryStatus.textContent = 'Please enter memory content';
       return;
     }
     
     try {
-      memoryStatus.textContent = '⏳ 添加中...';
+      memoryStatus.textContent = `Adding ${contents.length} memories...`;
       const topicTags = tags ? tags.split(',').map(t => t.trim()).filter(t => t) : [];
       
-      await api("/memory/add", "POST", {
-        content,
-        importance,
-        topic_tags: topicTags,
-        emotion_tags: [],
-        entities: []
-      });
+      let addedCount = 0;
+      for (const content of contents) {
+        await api("/memory/add", "POST", {
+          content,
+          importance,
+          topic_tags: topicTags,
+          emotion_tags: [],
+          entities: []
+        });
+        addedCount++;
+      }
       
-      memoryStatus.textContent = '✅ 记忆已添加';
+      memoryStatus.textContent = `Added ${addedCount} memories`;
       document.getElementById('new-memory').value = '';
       document.getElementById('memory-tags').value = '';
       loadMemory();
     } catch (e) {
-      memoryStatus.textContent = '❌ 添加失败: ' + e.message;
+      memoryStatus.textContent = 'Failed to add: ' + e.message;
     }
   };
 
-  // 添加演示数据
+  // Add demo data handler
   document.getElementById('add-demo').onclick = async () => {
     const memoryStatus = document.getElementById('memory-status');
     try {
-      memoryStatus.textContent = '⏳ 添加演示数据...';
+      memoryStatus.textContent = 'Adding demo data...';
       const result = await api("/memory/demo", "POST");
-      memoryStatus.textContent = `✅ 已添加 ${result.added} 条演示记忆`;
+      memoryStatus.textContent = `Added ${result.added} demo memories`;
       loadMemory();
     } catch (e) {
-      memoryStatus.textContent = '❌ 添加失败: ' + e.message;
+      memoryStatus.textContent = 'Failed to add: ' + e.message;
     }
   };
 
-  // 清空记忆
+  // Clear all memories handler
   document.getElementById('clear-memory').onclick = async () => {
     const memoryStatus = document.getElementById('memory-status');
-    if (!confirm('确定要清空当前插件的所有记忆吗？')) return;
+    if (!confirm('Clear all memories for current plugin?')) return;
     
     try {
-      memoryStatus.textContent = '⏳ 清空中...';
+      memoryStatus.textContent = 'Clearing...';
       await api("/memory/clear", "POST");
-      memoryStatus.textContent = '✅ 记忆已清空';
+      memoryStatus.textContent = 'Memories cleared';
       loadMemory();
     } catch (e) {
-      memoryStatus.textContent = '❌ 清空失败: ' + e.message;
+      memoryStatus.textContent = 'Failed to clear: ' + e.message;
     }
   };
 
-  // 页面加载时初始化（只加载插件列表，记忆等展开时再加载）
+  // Initialize on page load (load plugin list only, load memories when opened)
   setTimeout(() => {
     loadPlugins();
   }, 500);
