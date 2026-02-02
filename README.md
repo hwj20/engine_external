@@ -1,4 +1,3 @@
-```markdown
 <div align="center">
 
 # 🚚 Project AURORA: Local Agent Migration Guide
