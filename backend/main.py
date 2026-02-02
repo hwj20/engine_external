@@ -69,7 +69,15 @@ memory = MemoryStore(os.path.join(DATA_DIR, "memory.sqlite3"))
 agent = AgentCore(memory=memory, settings=settings)
 
 # System Prompts templates 目录
-SYSTEM_PROMPTS_DIR = os.path.join(os.path.dirname(__file__), "system_prompts")
+# For packaged app, we need to use the bundled resources path
+if getattr(sys, 'frozen', False):
+    # Running as packaged executable - look for system_prompts in the bundled directory
+    # PyInstaller extracts files to sys._MEIPASS
+    SYSTEM_PROMPTS_DIR = os.path.join(sys._MEIPASS, "system_prompts")
+else:
+    # Running in development
+    SYSTEM_PROMPTS_DIR = os.path.join(os.path.dirname(__file__), "system_prompts")
+
 # 用户自定义人格存储目录
 CUSTOM_PERSONALITIES_DIR = os.path.join(DATA_DIR, "custom_personalities")
 os.makedirs(CUSTOM_PERSONALITIES_DIR, exist_ok=True)

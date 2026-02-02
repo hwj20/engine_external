@@ -5,11 +5,22 @@ Memory Plugin API
 
 import os
 import re
+import sys
 import json
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 
 from memory_plugins import MemoryPluginManager
+
+
+# Determine the data directory based on whether we're running packaged or in development
+def get_data_dir():
+    if getattr(sys, 'frozen', False):
+        # Running as packaged executable
+        return os.path.join(os.path.expanduser("~"), "AppData", "Local", "AURORA-Local-Agent")
+    else:
+        # Running in development
+        return os.path.join(os.path.dirname(__file__), "data")
 
 
 # ==================== Pydantic 请求模型 ====================
@@ -65,13 +76,16 @@ class MemoryPluginService:
     
     def __init__(self, user_id: str = "default_user", storage_path: str = None):
         if storage_path is None:
-            storage_path = os.path.join(os.path.dirname(__file__), "data", "memory_plugins")
+            # Use the correct data directory based on environment
+            data_dir = get_data_dir()
+            storage_path = os.path.join(data_dir, "memory_plugins")
+            os.makedirs(storage_path, exist_ok=True)
         
         self.manager = MemoryPluginManager.get_instance(
             user_id=user_id,
             storage_path=storage_path
         )
-        print(f"[MemoryPluginService] Initialized with user: {user_id}")
+        print(f"[MemoryPluginService] Initialized with user: {user_id}, storage_path: {storage_path}")
     
     @classmethod
     def get_instance(cls, user_id: str = "default_user") -> 'MemoryPluginService':

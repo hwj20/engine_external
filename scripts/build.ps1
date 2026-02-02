@@ -2,7 +2,7 @@
 # This script packages both frontend (Electron) and backend (Python) into a single distributable
 
 param(
-    [string]$Version = "0.1.1",
+    [string]$Version = "0.1.2",
     [string]$ProjectName = "Engine External",
     [switch]$SkipBackend,
     [switch]$SkipFrontend
