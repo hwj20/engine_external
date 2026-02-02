@@ -32,7 +32,18 @@ os.makedirs(PERSONAL_INFO_DIR, exist_ok=True)
 CONVERSATIONS_FILE = os.path.join(PERSONAL_INFO_DIR, "conversations.json")
 
 # Path to external_engine_conversation.json (new, read-write)
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+# Use application data directory for packaged app, backend/data for development
+if getattr(sys, 'frozen', False):
+    # Running as packaged executable
+    DATA_DIR = os.path.join(
+        os.path.expanduser("~"), 
+        "AppData", "Local", "AURORA-Local-Agent"
+    )
+else:
+    # Running in development
+    DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+
+os.makedirs(DATA_DIR, exist_ok=True)
 ENGINE_CONVERSATIONS_FILE = os.path.join(DATA_DIR, "external_engine_conversation.json")
 
 
