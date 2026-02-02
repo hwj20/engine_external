@@ -1,7 +1,7 @@
 
 <div align="center">
 
-# 🚚 Project AURORA: Local Agent Migration Guide
+# 🚚 Local Agent Migration Guide
 
 **From ChatGPT to Your Private Local Sanctuary**
 
