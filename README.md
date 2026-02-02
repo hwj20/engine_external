@@ -1,4 +1,4 @@
-# 🚚 从 ChatGPT 搬家到 AURORA Local Agent
+# 🚚 从 ChatGPT 搬家到 Local Agent
 
 ---
 
