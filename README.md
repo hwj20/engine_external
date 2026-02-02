@@ -5,7 +5,7 @@
 ## 📋 开始之前
 
 你需要准备：
-- Engine External 的zip包（[点击下载](https://github.com/hwj20/engine_external/releases/tag/v0.1.1)）
+- Engine External 的zip包（[点击下载](https://github.com/hwj20/engine_external/releases/tag/v0.1.2)）
 - OpenAI API Key（[获取地址](https://platform.openai.com/api-keys)）
 - 10-15 分钟
 
