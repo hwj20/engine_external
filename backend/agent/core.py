@@ -3,7 +3,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from collections import defaultdict
 from .store import MemoryStore, SettingsStore
-from .context import ContextAssembler, ContextBudget
+from .context import ContextAssembler, ContextBudget, approx_tokens
 from .llm import OpenAICompatibleClient
 
 logger = logging.getLogger(__name__)
@@ -15,8 +15,10 @@ DEFAULT_PERSONA = """你是一个终身陪伴型AI助手。风格：亲密、聪
 - 记忆要克制：只把长期稳定且对未来有用的信息写入长期记忆。
 """
 
-# 最大保留的历史消息轮数
+# 最大保留的历史消息轮数（已弃用，改为基于token的动态计算）
 MAX_HISTORY_TURNS = 10
+# 对话历史的token预算（用于滑动窗口）
+HISTORY_TOKEN_BUDGET = 1200  # 约300条消息的容量（中文平均6字/消息）
 
 class AgentCore:
     def __init__(self, memory: MemoryStore, settings: SettingsStore):
@@ -52,10 +54,27 @@ class AgentCore:
         return cards
 
     def _get_conversation_history(self, session_id: str, max_turns: int = 5) -> List[Dict[str, str]]:
-        """获取最近的对话历史"""
+        """获取最近的对话历史（基于token预算的滑动窗口）"""
         history = self.conversation_history.get(session_id, [])
-        # 每轮包含 user + assistant，所以取 max_turns * 2 条消息
-        return history[-(max_turns * 2):] if history else []
+        if not history:
+            return []
+        
+        # 基于token预算动态选择历史消息
+        # 从最近的消息开始，向前累加，直到达到token预算
+        selected = []
+        total_tokens = 0
+        
+        # 从后向前遍历（最近的消息在后）
+        for msg in reversed(history):
+            msg_tokens = approx_tokens(msg["content"])
+            if total_tokens + msg_tokens > HISTORY_TOKEN_BUDGET:
+                break
+            selected.insert(0, msg)  # 插入到前面以保持顺序
+            total_tokens += msg_tokens
+        
+        print(f"[AgentCore] Selected {len(selected)} messages ({total_tokens} tokens) from history for session: {session_id}", flush=True)
+        logger.info(f"Selected {len(selected)} messages ({total_tokens} tokens) from conversation history")
+        return selected
 
     def _add_to_history(self, session_id: str, role: str, content: str) -> None:
         """添加消息到会话历史"""
@@ -107,10 +126,21 @@ class AgentCore:
             model=st["model"]
         )
 
-        system = pack["persona"] + "\n\n" + pack["state"] + "\n\n" + "可用记忆卡片:\n" + "\n".join(pack["memory_cards"])
+        # 构建system prompt：优先使用用户自定义的system_prompt，否则使用DEFAULT_PERSONA
+        custom_system_prompt = st.get("system_prompt", "").strip()
+        if custom_system_prompt:
+            # 用户提供了自定义prompt，与默认persona和state合并
+            system = custom_system_prompt + "\n\n" + pack["state"] + "\n\n" + "可用记忆卡片:\n" + "\n".join(pack["memory_cards"])
+            print(f"[AgentCore] Using custom system prompt (len={len(custom_system_prompt)})", flush=True)
+            logger.info(f"Using custom system prompt from settings")
+        else:
+            # 使用默认的persona和state
+            system = pack["persona"] + "\n\n" + pack["state"] + "\n\n" + "可用记忆卡片:\n" + "\n".join(pack["memory_cards"])
+            print(f"[AgentCore] Using default persona prompt", flush=True)
+            logger.info(f"Using default persona prompt")
         
-        # 获取最近的对话历史
-        history = self._get_conversation_history(session_id, max_turns=5)
+        # 获取最近的对话历史（基于token预算的滑动窗口）
+        history = self._get_conversation_history(session_id)
         history_count = len(history) // 2
         print(f"[AgentCore] Including {history_count} turns of conversation history", flush=True)
         

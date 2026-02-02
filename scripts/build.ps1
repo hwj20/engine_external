@@ -2,8 +2,8 @@
 # This script packages both frontend (Electron) and backend (Python) into a single distributable
 
 param(
-    [string]$Version = "0.1.0",
-    [string]$ProjectName = "AURORA Local Agent MVP",
+    [string]$Version = "0.1.1",
+    [string]$ProjectName = "Engine External",
     [switch]$SkipBackend,
     [switch]$SkipFrontend
 )
@@ -45,6 +45,7 @@ if (-not $SkipBackend) {
     
     # Create PyInstaller spec
     $backendDir = Join-Path $RootDir "backend"
+    $projectBackendName = ($ProjectName -replace ' ', '-') + "-backend"
     $specContent = @"
 # -*- mode: python ; coding: utf-8 -*-
 import os
@@ -64,6 +65,12 @@ a = Analysis(
         # Note: data directory is NOT included - it's created at runtime
     ],
     hiddenimports=[
+        'main',
+        'agent',
+        'agent.core',
+        'agent.llm',
+        'agent.context',
+        'agent.store',
         'uvicorn.logging',
         'uvicorn.loops',
         'uvicorn.loops.auto',
@@ -90,7 +97,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['torch', 'tensorflow', 'pandas', 'numpy', 'scipy', 'matplotlib', 'jupyter', 'IPython'],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -106,7 +113,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='aurora-backend',
+    name='$projectBackendName',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -137,7 +144,7 @@ exe = EXE(
         Write-Host "Running PyInstaller..." -ForegroundColor Gray
         pyinstaller --clean --noconfirm $specPath --distpath (Join-Path $BuildDir "backend")
         
-        if (-not (Test-Path (Join-Path $BuildDir "backend\aurora-backend.exe"))) {
+        if (-not (Test-Path (Join-Path $BuildDir "backend\$projectBackendName.exe"))) {
             throw "Backend build failed - executable not found"
         }
         Write-Host "Backend build successful!" -ForegroundColor Green
@@ -182,30 +189,117 @@ $finalDir = Join-Path $DistDir "$projectSafeName-$Version-win-x64"
 New-Item -ItemType Directory -Path $finalDir -Force | Out-Null
 
 # Copy backend
-if (Test-Path (Join-Path $BuildDir "backend\aurora-backend.exe")) {
-    Copy-Item (Join-Path $BuildDir "backend\aurora-backend.exe") $finalDir
+if (Test-Path (Join-Path $BuildDir "backend\$projectBackendName.exe")) {
+    Copy-Item (Join-Path $BuildDir "backend\$projectBackendName.exe") $finalDir
 }
 
-# Copy frontend (find the unpacked directory or installer)
+# Copy frontend - electron-builder creates files in win-unpacked subdirectory
 $electronDist = Join-Path $RootDir "app\dist"
-$unpackedDir = Get-ChildItem $electronDist -Directory -Filter "*unpacked*" | Select-Object -First 1
-if ($unpackedDir) {
-    Copy-Item "$($unpackedDir.FullName)\*" $finalDir -Recurse -Force
+if (Test-Path $electronDist) {
+    # Copy from win-unpacked directory (contains the .exe and resources)
+    $unpackedDir = Get-ChildItem $electronDist -Directory -Filter "*unpacked*" | Select-Object -First 1
+    if ($unpackedDir) {
+        Get-ChildItem $unpackedDir.FullName | ForEach-Object {
+            Copy-Item $_.FullName $finalDir -Recurse -Force
+        }
+    }
+} else {
+    Write-Host "Warning: Frontend dist folder not found at $electronDist" -ForegroundColor Yellow
 }
 
 # Copy data directory template
 $dataDir = Join-Path $finalDir "data"
 New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
 
-# Create launcher script
-$launcherContent = @'
+# Create launcher script (bat)
+$projectExeName = $ProjectName + ".exe"
+$projectBackendExeName = $projectBackendName + ".exe"
+$launcherContent = @"
 @echo off
 echo Starting $ProjectName...
-start "" "%~dp0aurora-backend.exe"
+start "" "%~dp0$projectBackendExeName"
 timeout /t 2 /nobreak >nul
-start "" "%~dp0AURORA Local Agent MVP.exe"
-'@
+start "" "%~dp0$projectExeName"
+"@
 $launcherContent | Set-Content (Join-Path $finalDir "Start-AURORA.bat") -Encoding ASCII
+
+# Create Python launcher wrapper for exe
+$launcherPyName = "launcher.py"
+$launcherBuildDir = Join-Path $BuildDir "launcher"
+New-Item -ItemType Directory -Path $launcherBuildDir -Force | Out-Null
+$launcherPyPath = Join-Path $launcherBuildDir $launcherPyName
+$launcherPyContent = @'
+import subprocess
+import sys
+import os
+import time
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+bat_path = os.path.join(script_dir, "Start-AURORA.bat")
+log_path = os.path.join(script_dir, "Start-AURORA-launcher.log")
+
+def log_msg(msg):
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    with open(log_path, "a") as f:
+        f.write(f"[{timestamp}] {msg}\n")
+    print(msg, flush=True)
+
+try:
+    # Clear old log
+    if os.path.exists(log_path):
+        os.remove(log_path)
+    
+    log_msg("=== Start-AURORA Launcher ===")
+    log_msg(f"Script dir: {script_dir}")
+    log_msg(f"Bat path: {bat_path}")
+    log_msg(f"Bat exists: {os.path.exists(bat_path)}")
+    
+    if not os.path.exists(bat_path):
+        log_msg("ERROR: Start-AURORA.bat not found!")
+        log_msg(f"Files in directory: {os.listdir(script_dir)}")
+        sys.exit(1)
+    
+    log_msg("Starting batch file with cmd.exe...")
+    
+    # Use cmd.exe to run the bat file
+    result = subprocess.call(['cmd.exe', '/c', bat_path], 
+                             cwd=script_dir,
+                             creationflags=subprocess.CREATE_NEW_CONSOLE)
+    
+    log_msg(f"Batch file completed with code: {result}")
+    
+except Exception as e:
+    log_msg(f"ERROR: {type(e).__name__}: {e}")
+    import traceback
+    log_msg(traceback.format_exc())
+    sys.exit(1)
+'@
+$launcherPyContent | Set-Content $launcherPyPath -Encoding UTF8
+
+# Package Python launcher as exe using PyInstaller
+Write-Host "Creating launcher executable..." -ForegroundColor Gray
+Push-Location $launcherBuildDir
+try {
+    pyinstaller --onefile --windowed --name "Start-AURORA" --distpath "dist" $launcherPyName
+    
+    if (Test-Path "dist\Start-AURORA.exe") {
+        Copy-Item "dist\Start-AURORA.exe" $finalDir
+        Write-Host "Launcher executable created successfully!" -ForegroundColor Green
+    } else {
+        Write-Host "Warning: Launcher executable not created" -ForegroundColor Yellow
+    }
+    
+    # Clean up build artifacts
+    Remove-Item -Recurse -Force "build" -ErrorAction SilentlyContinue
+    Remove-Item -Recurse -Force "dist" -ErrorAction SilentlyContinue
+    Remove-Item "*.spec" -ErrorAction SilentlyContinue
+}
+catch {
+    Write-Host "Warning: Failed to create launcher executable: $_" -ForegroundColor Yellow
+}
+finally {
+    Pop-Location
+}
 
 # Create version file
 @{

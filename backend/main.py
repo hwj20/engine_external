@@ -1,10 +1,14 @@
 import os
 import sys
 import logging
+import re
+import json
+import time
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from agent.core import AgentCore
 from agent.store import MemoryStore, SettingsStore
 from memory_plugin_api import (
@@ -55,6 +59,108 @@ os.makedirs(DATA_DIR, exist_ok=True)
 settings = SettingsStore(os.path.join(DATA_DIR, "settings.json"))
 memory = MemoryStore(os.path.join(DATA_DIR, "memory.sqlite3"))
 agent = AgentCore(memory=memory, settings=settings)
+
+# System Prompts templates 目录
+SYSTEM_PROMPTS_DIR = os.path.join(os.path.dirname(__file__), "system_prompts")
+# 用户自定义人格存储目录
+CUSTOM_PERSONALITIES_DIR = os.path.join(DATA_DIR, "custom_personalities")
+os.makedirs(CUSTOM_PERSONALITIES_DIR, exist_ok=True)
+
+def load_system_prompt_templates() -> Dict[str, Dict[str, Any]]:
+    """加载所有可用的系统提示模板"""
+    templates = {}
+    
+    if not os.path.exists(SYSTEM_PROMPTS_DIR):
+        print(f"[SYSTEM_PROMPTS] Directory not found: {SYSTEM_PROMPTS_DIR}", flush=True)
+        return templates
+    
+    # 扫描所有.md文件
+    for file_path in sorted(Path(SYSTEM_PROMPTS_DIR).glob("*.md")):
+        if file_path.name == "README.md" or file_path.name == "05_template.md":
+            continue
+            
+        template_id = file_path.stem  # e.g., "01_standard"
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+            
+            # 提取标题（第一行或#开头的行）
+            title = "Custom Template"
+            lines = content.split('\n')
+            for line in lines:
+                if line.startswith('#'):
+                    title = line.lstrip('#').strip()
+                    break
+            
+            # 移除markdown格式标记，只保留纯文本
+            text_content = content
+            # 移除markdown代码块标记
+            text_content = re.sub(r'```[\w]*\n', '', text_content)
+            text_content = re.sub(r'\n```', '', text_content)
+            # 移除markdown标题标记
+            text_content = re.sub(r'^#+\s+', '', text_content, flags=re.MULTILINE)
+            # 移除markdown加粗和斜体
+            text_content = re.sub(r'\*\*|\*|__', '', text_content)
+            # 移除markdown列表标记
+            text_content = re.sub(r'^[\-\*]\s+', '', text_content, flags=re.MULTILINE)
+            # 清理多余空行
+            text_content = '\n'.join([line.rstrip() for line in text_content.split('\n')])
+            while '\n\n\n' in text_content:
+                text_content = text_content.replace('\n\n\n', '\n\n')
+            text_content = text_content.strip()
+            
+            templates[template_id] = {
+                "id": template_id,
+                "title": title,
+                "content": text_content,
+                "file": file_path.name,
+                "is_builtin": True
+            }
+            print(f"[SYSTEM_PROMPTS] Loaded template: {template_id} - {title}", flush=True)
+            
+        except Exception as e:
+            print(f"[SYSTEM_PROMPTS] Error loading {file_path.name}: {e}", flush=True)
+            logger.error(f"Error loading system prompt template {file_path.name}: {e}")
+    
+    return templates
+
+def load_custom_personalities() -> Dict[str, Dict[str, Any]]:
+    """加载用户自定义的人格"""
+    personalities = {}
+    
+    if not os.path.exists(CUSTOM_PERSONALITIES_DIR):
+        return personalities
+    
+    try:
+        for file_path in sorted(Path(CUSTOM_PERSONALITIES_DIR).glob("*.json")):
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                personality_id = file_path.stem
+                personalities[personality_id] = {
+                    "id": personality_id,
+                    "title": data.get("title", personality_id),
+                    "content": data.get("content", ""),
+                    "is_builtin": False
+                }
+                print(f"[CUSTOM_PERSONALITIES] Loaded: {personality_id} - {data.get('title', personality_id)}", flush=True)
+            except Exception as e:
+                print(f"[CUSTOM_PERSONALITIES] Error loading {file_path.name}: {e}", flush=True)
+                logger.error(f"Error loading custom personality {file_path.name}: {e}")
+    except Exception as e:
+        print(f"[CUSTOM_PERSONALITIES] Error scanning directory: {e}", flush=True)
+    
+    return personalities
+
+# 在启动时加载所有模板
+SYSTEM_PROMPT_TEMPLATES = load_system_prompt_templates()
+CUSTOM_PERSONALITIES = load_custom_personalities()
+# 合并模板和自定义人格
+ALL_PERSONALITIES = {**SYSTEM_PROMPT_TEMPLATES, **CUSTOM_PERSONALITIES}
+print(f"[SYSTEM_PROMPTS] Loaded {len(SYSTEM_PROMPT_TEMPLATES)} built-in templates", flush=True)
+print(f"[CUSTOM_PERSONALITIES] Loaded {len(CUSTOM_PERSONALITIES)} custom personalities", flush=True)
 
 # 初始化 Memory Plugin 服务（新的插件化系统）
 memory_service = MemoryPluginService.get_instance(
@@ -126,6 +232,102 @@ def set_system_prompt(data: dict):
     settings.set(current)
     print("[SETTINGS] System prompt saved successfully", flush=True)
     return {"ok": True}
+
+@app.get("/settings/system-prompt/templates")
+def get_system_prompt_templates():
+    """获取所有可用的系统提示模板列表"""
+    print("[SETTINGS] Getting system prompt templates list", flush=True)
+    logger.info("System prompt templates list requested")
+    
+    # 构建模板列表：先是内置模板，再是自定义人格
+    templates_list = []
+    
+    # 添加内置模板
+    for template_id, template_data in SYSTEM_PROMPT_TEMPLATES.items():
+        templates_list.append({
+            "id": template_id,
+            "title": template_data["title"],
+            "is_builtin": True
+        })
+    
+    # 添加自定义人格
+    for personality_id, personality_data in CUSTOM_PERSONALITIES.items():
+        templates_list.append({
+            "id": personality_id,
+            "title": personality_data["title"],
+            "is_builtin": False
+        })
+    
+    return {
+        "templates": templates_list,
+        "count": len(templates_list)
+    }
+
+@app.get("/settings/system-prompt/templates/{template_id}")
+def get_system_prompt_template(template_id: str):
+    """加载特定的系统提示模板"""
+    print(f"[SETTINGS] Getting system prompt template: {template_id}", flush=True)
+    logger.info(f"System prompt template requested: {template_id}")
+    
+    # 先检查内置模板，再检查自定义人格
+    if template_id in SYSTEM_PROMPT_TEMPLATES:
+        template_data = SYSTEM_PROMPT_TEMPLATES[template_id]
+    elif template_id in CUSTOM_PERSONALITIES:
+        template_data = CUSTOM_PERSONALITIES[template_id]
+    else:
+        print(f"[SETTINGS] Template not found: {template_id}", flush=True)
+        return {"error": f"Template '{template_id}' not found", "status": "error"}
+    
+    print(f"[SETTINGS] Returning template: {template_id}", flush=True)
+    
+    return {
+        "id": template_data["id"],
+        "title": template_data["title"],
+        "content": template_data["content"],
+        "status": "success"
+    }
+
+@app.post("/settings/system-prompt/save-custom")
+def save_custom_personality(data: dict):
+    """保存用户自定义的人格"""
+    global CUSTOM_PERSONALITIES
+    
+    print(f"[CUSTOM_PERSONALITIES] Saving custom personality", flush=True)
+    
+    title = data.get("title", "").strip() or "My Custom Personality"
+    content = data.get("content", "").strip()
+    
+    if not content:
+        return {"error": "Personality content cannot be empty", "status": "error"}
+    
+    # 生成ID
+    personality_id = f"custom_{int(time.time())}"
+    
+    try:
+        # 保存为JSON文件
+        file_path = os.path.join(CUSTOM_PERSONALITIES_DIR, f"{personality_id}.json")
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump({
+                "title": title,
+                "content": content,
+                "created_at": time.time()
+            }, f, ensure_ascii=False, indent=2)
+        
+        print(f"[CUSTOM_PERSONALITIES] Saved: {personality_id} - {title}", flush=True)
+        logger.info(f"Custom personality saved: {personality_id}")
+        
+        # 重新加载所有自定义人格以确保同步
+        CUSTOM_PERSONALITIES = load_custom_personalities()
+        
+        return {
+            "personality_id": personality_id,
+            "title": title,
+            "status": "success"
+        }
+    except Exception as e:
+        print(f"[CUSTOM_PERSONALITIES] Error saving: {e}", flush=True)
+        logger.error(f"Error saving custom personality: {e}")
+        return {"error": str(e), "status": "error"}
 
 @app.post("/chat", response_model=ChatResp)
 def chat(req: ChatReq):

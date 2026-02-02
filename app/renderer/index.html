@@ -133,11 +133,6 @@
         <div id="status" class="muted" style="margin-top:10px;"></div>
       </div>
 
-      <div class="card" style="margin-top:12px;">
-        <div style="font-weight:700; margin-bottom:8px;">Cost Controls</div>
-        <div class="muted">Output length hard limit: Chat~220 tokens, Task~400 tokens; Context budget~2200 tokens (char approx).</div>
-      </div>
-
       <!-- System Prompt Panel -->
       <div class="card" style="margin-top:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -171,14 +166,28 @@
           <span class="modal-close" id="close-system-prompt-modal">&times;</span>
         </div>
         <div class="modal-body">
-          <div class="muted" style="margin-bottom:12px; font-size:12px;">Customize the system prompt to guide AI behavior and personality</div>
+          <div class="muted" style="margin-bottom:12px; font-size:12px;">Choose an AI personality preset or create a custom one</div>
           
-          <label style="font-size:12px; margin-bottom:6px; display:block;">System Prompt</label>
-          <textarea id="system-prompt-input" placeholder="Enter system prompt here..." style="width:100%; min-height:300px; max-height:500px; font-size:13px; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:12px; outline:none; font-family: monospace; resize: vertical;"></textarea>
+          <!-- Template Selection -->
+          <div style="margin-bottom:16px;">
+            <label style="font-size:12px; margin-bottom:6px; display:block; font-weight:600;">AI Personality</label>
+            <select id="system-prompt-template-select" style="width:100%; padding:10px; border-radius:6px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; font-size:13px; outline:none; cursor:pointer;">
+            </select>
+            <div id="template-status" class="muted" style="margin-top:6px; font-size:11px;"></div>
+          </div>
           
-          <div style="display:flex; gap:10px; margin-top:12px;">
-            <button id="save-system-prompt" style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(80,120,255,.2); color:#e7eefc; font-size:13px; cursor:pointer;">Save Prompt</button>
-            <button id="reset-system-prompt" style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.08); color:#e7eefc; font-size:13px; cursor:pointer;">Clear</button>
+          <!-- Custom Prompt Input (shown when custom selected) -->
+          <div id="custom-prompt-section" style="display:none;">
+            <label style="font-size:12px; margin-bottom:6px; display:block;">Your Custom Prompt</label>
+            <textarea id="system-prompt-input" placeholder="Enter your custom AI personality here..." style="width:100%; min-height:300px; max-height:500px; font-size:13px; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:12px; outline:none; font-family: monospace; resize: vertical;"></textarea>
+            
+            <label style="font-size:12px; margin-bottom:6px; display:block; margin-top:12px;">Name this personality (optional)</label>
+            <input id="custom-prompt-name" type="text" placeholder="e.g., My Friendly Bot" style="width:100%; padding:10px; border-radius:6px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; font-size:13px; outline:none; box-sizing:border-box;">
+            
+            <div style="display:flex; gap:10px; margin-top:12px;">
+              <button id="save-system-prompt" style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(80,120,255,.2); color:#e7eefc; font-size:13px; cursor:pointer;">Save</button>
+              <button id="reset-system-prompt" style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,.08); color:#e7eefc; font-size:13px; cursor:pointer;">Clear</button>
+            </div>
           </div>
           
           <div id="system-prompt-status" class="muted" style="margin-top:10px; font-size:11px;"></div>
@@ -494,14 +503,97 @@
   const openSystemPromptBtn = document.getElementById('open-system-prompt-window');
   const closeSystemPromptBtn = document.getElementById('close-system-prompt-modal');
   const systemPromptInput = document.getElementById('system-prompt-input');
+  const customPromptName = document.getElementById('custom-prompt-name');
   const saveSystemPromptBtn = document.getElementById('save-system-prompt');
   const resetSystemPromptBtn = document.getElementById('reset-system-prompt');
   const systemPromptStatus = document.getElementById('system-prompt-status');
+  const systemPromptTemplateSelect = document.getElementById('system-prompt-template-select');
+  const templateStatus = document.getElementById('template-status');
+  const customPromptSection = document.getElementById('custom-prompt-section');
+  
+  // 当前选中的模板内容和ID
+  let currentTemplateContent = '';
+  let lastSelectedTemplateId = 'custom'; // 默认为custom
+  
+  // 加载模板列表
+  async function loadTemplatesList() {
+    try {
+      const data = await api('/settings/system-prompt/templates');
+      const templates = data.templates || [];
+      
+      // Clear existing options (including custom)
+      while (systemPromptTemplateSelect.options.length > 0) {
+        systemPromptTemplateSelect.remove(0);
+      }
+      
+      // Add template options first
+      templates.forEach(template => {
+        const option = document.createElement('option');
+        option.value = template.id;
+        option.textContent = template.title;
+        systemPromptTemplateSelect.appendChild(option);
+      });
+      
+      // Add custom option at the end
+      const customOption = document.createElement('option');
+      customOption.value = 'custom';
+      customOption.textContent = 'Custom (Create your own)';
+      systemPromptTemplateSelect.appendChild(customOption);
+      
+      if (templates.length > 0) {
+        templateStatus.textContent = `${templates.length} built-in personalities available`;
+      }
+    } catch (e) {
+      templateStatus.textContent = 'Failed to load: ' + e.message;
+    }
+  }
+  
+  // 加载指定模板
+  async function loadTemplateContent(templateId) {
+    try {
+      const data = await api(`/settings/system-prompt/templates/${templateId}`);
+      
+      if (data.status === 'success') {
+        currentTemplateContent = data.content;
+        systemPromptStatus.textContent = `Using: ${data.title}`;
+        
+        // 自动保存到backend
+        await api('/settings/system-prompt', 'POST', {
+          system_prompt: data.content
+        });
+        systemPromptStatus.textContent = `✓ Switched to: ${data.title}`;
+      } else {
+        systemPromptStatus.textContent = 'Error: ' + (data.error || 'Unknown error');
+      }
+    } catch (e) {
+      systemPromptStatus.textContent = 'Failed to load: ' + e.message;
+    }
+  }
+  
+  // 监听模板选择变化
+  systemPromptTemplateSelect.onchange = async () => {
+    const templateId = systemPromptTemplateSelect.value;
+    lastSelectedTemplateId = templateId;
+    
+    // 保存选择到本地存储
+    localStorage.setItem('lastSelectedTemplateId', templateId);
+    
+    if (templateId === 'custom') {
+      customPromptSection.style.display = 'block';
+      currentTemplateContent = '';
+      customPromptName.value = '';
+      systemPromptStatus.textContent = '';
+    } else {
+      customPromptSection.style.display = 'none';
+      await loadTemplateContent(templateId);
+    }
+  };
   
   // Open system prompt window
-  openSystemPromptBtn.onclick = () => {
+  openSystemPromptBtn.onclick = async () => {
     systemPromptModal.classList.add('show');
-    loadSystemPrompt();
+    await loadTemplatesList();
+    await loadSystemPrompt();
   };
   
   // Close system prompt window
@@ -516,12 +608,33 @@
     }
   };
   
-  // Load system prompt
+  // Load system prompt from settings
   async function loadSystemPrompt() {
     try {
       const data = await api('/settings/system-prompt');
-      systemPromptInput.value = data.system_prompt || '';
-      systemPromptStatus.textContent = 'System prompt loaded';
+      const savedPrompt = data.system_prompt || '';
+      
+      // 从本地存储恢复上次选择的模板ID
+      const savedTemplateId = localStorage.getItem('lastSelectedTemplateId') || 'custom';
+      lastSelectedTemplateId = savedTemplateId;
+      
+      if (savedPrompt) {
+        systemPromptInput.value = savedPrompt;
+      } else {
+        systemPromptInput.value = '';
+      }
+      
+      // 设置下拉框为上次选择的值
+      systemPromptTemplateSelect.value = savedTemplateId;
+      
+      // 触发change事件来更新UI
+      if (savedTemplateId === 'custom') {
+        customPromptSection.style.display = 'block';
+        systemPromptStatus.textContent = '';
+      } else {
+        customPromptSection.style.display = 'none';
+        await loadTemplateContent(savedTemplateId);
+      }
     } catch (e) {
       systemPromptStatus.textContent = 'Failed to load: ' + e.message;
     }
@@ -530,11 +643,45 @@
   // Save system prompt
   saveSystemPromptBtn.onclick = async () => {
     try {
+      const contentToSave = systemPromptInput.value.trim();
+      
+      if (!contentToSave) {
+        systemPromptStatus.textContent = 'Cannot save empty prompt';
+        return;
+      }
+      
       systemPromptStatus.textContent = 'Saving...';
-      await api('/settings/system-prompt', 'POST', {
-        system_prompt: systemPromptInput.value
+      
+      // 保存自定义人格
+      const saveResponse = await api('/settings/system-prompt/save-custom', 'POST', {
+        title: customPromptName.value.trim() || 'My Custom Personality',
+        content: contentToSave
       });
-      systemPromptStatus.textContent = 'System prompt saved successfully!';
+      
+      if (saveResponse.status === 'success') {
+        const personalityId = saveResponse.personality_id;
+        const personalityTitle = saveResponse.title;
+        
+        // 保存到settings
+        await api('/settings/system-prompt', 'POST', {
+          system_prompt: contentToSave
+        });
+        
+        // 重新加载模板列表
+        await loadTemplatesList();
+        
+        // 选中新保存的人格
+        systemPromptTemplateSelect.value = personalityId;
+        lastSelectedTemplateId = personalityId;
+        localStorage.setItem('lastSelectedTemplateId', personalityId);
+        
+        // 隐藏自定义输入框
+        customPromptSection.style.display = 'none';
+        
+        systemPromptStatus.textContent = `✓ Saved: ${personalityTitle}`;
+      } else {
+        systemPromptStatus.textContent = 'Error: ' + (saveResponse.error || 'Unknown error');
+      }
     } catch (e) {
       systemPromptStatus.textContent = 'Failed to save: ' + e.message;
     }
@@ -542,8 +689,9 @@
   
   // Reset system prompt
   resetSystemPromptBtn.onclick = () => {
-    if (confirm('Clear system prompt?')) {
+    if (confirm('Clear custom personality?')) {
       systemPromptInput.value = '';
+      customPromptName.value = '';
       systemPromptStatus.textContent = 'Cleared (not saved yet)';
     }
   };

@@ -11,8 +11,8 @@ const { execSync } = require('child_process');
 
 // Configuration - Update these with your GitHub repo info
 const UPDATE_CONFIG = {
-  owner: 'YOUR_GITHUB_USERNAME',  // Replace with your GitHub username
-  repo: 'aurora_local_agent_mvp', // Replace with your repo name
+  owner: 'hwj20',  // GitHub username
+  repo: 'engine_external', // Repo name
   currentVersion: require('../package.json').version
 };
 
