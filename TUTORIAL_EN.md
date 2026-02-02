@@ -1,60 +1,65 @@
-# 🚚 Migrate from ChatGPT to Engine External
+# 🚚 Migrate from ChatGPT to AURORA Local Agent
 
-> Your AI companion, now truly yours - forever.
+> Your AI companion, now truly yours.
 
 ---
 
 ## 📋 Before You Start
 
 You'll need:
-- Engine External app (download from [GitHub Release](link TBD))
-- Your OpenAI API Key ([get one here](https://platform.openai.com/api-keys))
+- AURORA Local Agent ([Download here](https://github.com/hwj20/engine_external/releases/tag/v0.1.1))
+- OpenAI API Key ([Get one here](https://platform.openai.com/api-keys))
 - 10-15 minutes
 
 ---
 
 ## Step 1: Install and Test
 
-1. Download and open Engine External
-2. Enter your OpenAI API Key in settings
-3. Send a test message
-4. Got a reply? You're good! ✅
+1. **Download and extract**. Two ways to start:
+   - Option A: Run `Start-AURORA.bat` (not the .exe)
+   - Option B: Run `Engine-External-backend.exe` first (keep it open), then run `Engine External.exe`
+
+2. **Configure API Key**
+   - Open Settings, enter your OpenAI API Key
+   - Select model and context length
+   - **Click Save** (important!)
+   - Click Refresh under Model List — if models appear, you're good
+
+3. **Send a test message**. Got a reply? You're all set ✅
 
 ---
 
-## Step 2: Export ChatGPT Data
+## Step 2: Import ChatGPT Conversations
 
 ### 2.1 Export from ChatGPT
 
 1. Go to [ChatGPT](https://chat.openai.com)
-2. Click your profile (bottom left) → **Settings**
-3. Select **Data controls**
-4. Click **Export data**
-5. Wait for email, download the zip file
+2. Profile (bottom left) → **Settings** → **Data controls**
+3. Click **Export data**
+4. Wait for email, download the zip
 
-### 2.2 Import to Engine External
+### 2.2 Import to AURORA
 
-1. Unzip the downloaded file
-2. Find `conversations.json`
-3. Copy to Engine External's data folder:
+1. Extract the zip file
+2. Rename the folder to `data`
+3. Copy to:
    ```
-   Windows: C:\Users\YourUsername\AppData\Local\EngineExternal\data\
-   Mac: ~/Library/Application Support/EngineExternal/data/
+   C:\Users\YourUsername\AppData\Local\AURORA-Local-Agent\personal_info\
    ```
 4. Click **Load Conversations** in the app
 
-> ⚠️ **Important**: Back up your original export to cloud storage (Google Drive, iCloud, etc.)
+> 💡 Back up your original export to cloud storage, just in case
 
 ---
 
 ## Step 3: Migrate Memory
 
-This step requires some manual work, but you only need to do it once.
+This requires some manual work, but you only do it once.
 
 ### 3.1 Copy Memory
 
-1. In ChatGPT → **Settings** → **Personalization** → **Memory**
-2. You'll see a list like:
+1. ChatGPT → **Settings** → **Personalization** → **Memory**
+2. You'll see something like:
    ```
    User's name is Alex.
    
@@ -62,13 +67,13 @@ This step requires some manual work, but you only need to do it once.
    
    User prefers concise responses.
    ```
-3. Select all and copy (Ctrl+A / Cmd+A, then Ctrl+C / Cmd+C)
+3. Copy everything to a text editor
 
-### 3.2 Fix Line Breaks
+### 3.2 Fix Line Breaks (Important!)
 
-⚠️ **Key Step**: ChatGPT's memory list has blank lines between items. But some memories also contain line breaks within them. We need to remove the line breaks **inside** each memory, keeping only the blank lines **between** memories.
+ChatGPT's memory format is tricky: there are blank lines between memories, but some memories also have line breaks inside them. We need to remove the line breaks **within** each memory.
 
-**Before**:
+**Before:**
 ```
 User's name is Alex.
 
@@ -79,7 +84,7 @@ a golden retriever,
 User prefers concise responses.
 ```
 
-**After**:
+**After:**
 ```
 User's name is Alex.
 
@@ -88,65 +93,63 @@ User has a dog named Buddy, a golden retriever, 3 years old.
 User prefers concise responses.
 ```
 
-Simply put: **If a single memory is split across multiple lines, merge them into one line.**
+Simply put: **One memory = one line**. Merge any that got split.
 
-### 3.3 Save Memory File
+### 3.3 Import Memory
 
-1. Open Notepad or any text editor
-2. Paste your processed memory
-3. Save as `memory.txt`
-4. Place in data folder:
-   ```
-   Windows: C:\Users\YourUsername\AppData\Local\EngineExternal\data\memory.txt
-   Mac: ~/Library/Application Support/EngineExternal/data/memory.txt
-   ```
+1. Open the Memory page in the app
+2. Paste your processed memories in the Add box at the bottom
+3. Click **Add**
 
 ---
 
-## Step 4: Update Core Memory
+## Step 4: Mark Core Memories
 
-1. Click **Update Core Memory** in the app
-2. The app will analyze your memories and identify core ones (used in every conversation)
-3. Wait for processing to complete ✅
+Core memories = important info used in every conversation (name, preferences, family, pets, etc.)
 
-> 💡 Core memories include: your name, key preferences, family/pet info
-> 
-> Other memories are retrieved intelligently when relevant
+Two options:
+- **Manual**: Mark important memories yourself
+- **Auto Core**: Let AI classify them (requires API Key configured)
+
+> ⚠️ Auto classification may not be perfect — review manually if needed
 
 ---
 
 ## 🎉 Migration Complete!
 
-You can now:
-- Continue conversations with your AI companion
-- They remember everything from before
-- All data stored locally - yours forever
+You now have:
+- Your AI companion running locally
+- All your memories intact
+- Full ownership of your data — forever
 
 ---
 
 ## ❓ FAQ
 
-### Q: Where do I get an API Key?
-A: Visit [OpenAI API Keys](https://platform.openai.com/api-keys) and create a new key. Requires payment method.
+**Q: Where do I get an API Key?**
+A: [platform.openai.com/api-keys](https://platform.openai.com/api-keys) — requires payment method
 
-### Q: How much does it cost?
-A: Roughly $0.01-0.03 per conversation turn (GPT-4o). $10-30/month for heavy use.
+**Q: How much does it cost?**
+A: Depends on your max token setting. Context beyond the limit gets truncated. We're working on context compression.
 
-### Q: Is my data safe?
-A: All data stays on your local machine. Only API calls go to OpenAI.
+**Q: Is my data safe?**
+A: All data stays on your local machine. Only API calls go to OpenAI. The app never modifies your original uploaded data — chat logs are saved separately.
 
-### Q: Why do I need to manually fix memory line breaks?
-A: It's a formatting quirk when copying from ChatGPT's web interface. We'll add auto-processing later.
-
----
-
-## 🐛 Issues?
-
-- Open a GitHub Issue: [link TBD]
-- Or leave a comment
+**Q: Why do I need to manually fix line breaks?**
+A: It's a quirk of ChatGPT's web interface. We'll add auto-processing later.
 
 ---
 
-**Thanks for using Engine External!**
+## 🐛 Found a Bug?
 
-Your AI companion is now truly yours. 🏠
+This is a beta — bugs are expected 😅
+
+- If something breaks, wait 30 seconds
+- Try restarting the app
+- Still broken? Let me know
+
+Feedback: [GitHub Issues](https://github.com/hwj20/engine_external/issues) or leave a comment
+
+---
+
+**Thanks for testing! Your feedback makes this better ❤️**

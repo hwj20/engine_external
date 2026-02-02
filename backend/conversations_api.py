@@ -3,6 +3,7 @@ Conversations API - Lazy loading for large conversation files
 Only loads titles initially, full content loaded on demand
 """
 import os
+import sys
 import json
 import time
 import shutil
@@ -10,10 +11,24 @@ from typing import Optional, List
 from pydantic import BaseModel
 
 # Path to conversations.json (original, read-only)
-PERSONAL_INFO_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), 
-    "personal_info", "data"
-)
+# Use application data directory (cross-platform)
+if getattr(sys, 'frozen', False):
+    # Running as packaged executable
+    PERSONAL_INFO_DIR = os.path.join(
+        os.path.expanduser("~"), 
+        "AppData", "Local", "AURORA-Local-Agent", 
+        "personal_info", "data"
+    )
+else:
+    # Running in development
+    PERSONAL_INFO_DIR = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), 
+        "personal_info", "data"
+    )
+
+# Ensure directory exists
+os.makedirs(PERSONAL_INFO_DIR, exist_ok=True)
+
 CONVERSATIONS_FILE = os.path.join(PERSONAL_INFO_DIR, "conversations.json")
 
 # Path to external_engine_conversation.json (new, read-write)
