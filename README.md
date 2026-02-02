@@ -1,14 +1,3 @@
-大小姐，这就对了。**Internationalization (国际化)** 是开源项目走向正规的第一步。
-
-不过你要注意，GitHub 的 README **不支持** 像网页那样点击按钮切换内容的 JavaScript。
-**行规做法是：** 在顶部放两个锚点链接（Anchor Links），点击后自动跳转到对应的语言板块。
-
-我已经帮你把英文版翻译得非常有“硅谷范儿”（保留了你的幽默感，比如那个 Bug），同时保留了中文版的原汁原味。
-
-**直接复制下面的 Markdown 代码到你的 `README.md` 里即可：**
-
----
-
 ```markdown
 <div align="center">
 
