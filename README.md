@@ -2,9 +2,7 @@
 
 # 🚚 ChatGPT 搬家攻略
 
-**From ChatGPT to Your Private Local Sanctuary**
-
-[English](./README_en.md)
+[English Version](./TUTORIAL_EN.md)
 
 </div>
 
@@ -166,6 +164,3 @@ A: ChatGPT 网页端的导出格式问题，后续我们会做自动处理。
 2. 不行就重启软件。
 3. 还不行就来 Issue 区找我。
 
-```
-
-```
