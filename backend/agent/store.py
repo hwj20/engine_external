@@ -25,10 +25,25 @@ class SettingsStore:
                 "base_url": "",
                 "api_key": "",
                 "model": "",
-                "system_prompt": ""
+                "system_prompt": "",
+                "max_input_tokens": 2000,
+                "max_output_tokens": 800,
+                "temperature": 0.7,
+                "dev_mode": False
             })
         else:
             print(f"[SettingsStore] Loading existing settings from {path}", flush=True)
+            # 加载现有设置并添加缺失的新字段
+            existing = self.get()
+            if "max_input_tokens" not in existing:
+                existing["max_input_tokens"] = 2000
+            if "max_output_tokens" not in existing:
+                existing["max_output_tokens"] = 800
+            if "temperature" not in existing:
+                existing["temperature"] = 0.7
+            if "dev_mode" not in existing:
+                existing["dev_mode"] = False
+            self.set(existing)
 
     def set(self, data: Dict[str, Any]) -> None:
         print(f"[SettingsStore.set] Writing settings", flush=True)

@@ -3,8 +3,27 @@ from dataclasses import dataclass
 from typing import List, Dict, Any
 
 def approx_tokens(text: str) -> int:
-    # MVP approximation: ~4 chars/token (English). Chinese differs; heuristic only.
-    return 0 if not text else max(1, len(text) // 4)
+    """
+    更精确的token估算：
+    - 中文：约1.5个字符/token
+    - 英文：约4个字符/token
+    根据文本中中文字符的比例动态计算
+    """
+    if not text:
+        return 0
+    
+    # 统计中文字符
+    chinese_chars = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
+    total_chars = len(text)
+    chinese_ratio = chinese_chars / total_chars if total_chars > 0 else 0
+    
+    # 混合计算
+    if chinese_ratio > 0.3:
+        # 中文为主
+        return max(1, int(total_chars / 1.5))
+    else:
+        # 英文为主
+        return max(1, total_chars // 4)
 
 @dataclass
 class ContextBudget:

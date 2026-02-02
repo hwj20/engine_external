@@ -9,7 +9,7 @@
                  img-src 'self' data:;
                  connect-src 'self' http://127.0.0.1:8787;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AURORA Local Agent MVP</title>
+  <title>Engine External</title>
   <style>
     body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 0; background: #0b0f17; color: #e7eefc; }
     header { padding: 14px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom: 1px solid rgba(255,255,255,.08); }
@@ -61,9 +61,49 @@
     .modal-body::-webkit-scrollbar-track { background: rgba(255,255,255,.04); border-radius: 4px; }
     .modal-body::-webkit-scrollbar-thumb { background: rgba(80,120,255,.4); border-radius: 4px; }
     .modal-body::-webkit-scrollbar-thumb:hover { background: rgba(80,120,255,.6); }
+    
+    /* Global scrollbar styles for all elements */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,.02); }
+    ::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, rgba(80,120,255,.4) 0%, rgba(100,150,255,.3) 100%);
+      border-radius: 5px;
+      border: 2px solid rgba(255,255,255,.01);
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, rgba(80,120,255,.6) 0%, rgba(100,150,255,.5) 100%);
+    }
+    ::-webkit-scrollbar-corner { background: rgba(255,255,255,.01); }
+    
+    /* Scrollbar for panel */
+    .panel::-webkit-scrollbar { width: 8px; }
+    .panel::-webkit-scrollbar-track { background: rgba(255,255,255,.02); }
+    .panel::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, rgba(80,120,255,.35) 0%, rgba(100,150,255,.25) 100%);
+      border-radius: 4px;
+    }
+    .panel::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, rgba(80,120,255,.55) 0%, rgba(100,150,255,.45) 100%);
+    }
+    
+    /* Scrollbar for chatlog */
+    .chatlog::-webkit-scrollbar { width: 8px; }
+    .chatlog::-webkit-scrollbar-track { background: rgba(255,255,255,.02); }
+    .chatlog::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, rgba(80,120,255,.35) 0%, rgba(100,150,255,.25) 100%);
+      border-radius: 4px;
+    }
+    .chatlog::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, rgba(80,120,255,.55) 0%, rgba(100,150,255,.45) 100%);
+    }
     /* Conversation list styles */
-    .conversation-item { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+    .conversation-item { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: flex-start; }
     .conversation-item:hover { background: rgba(80,120,255,.15); border-color: rgba(80,120,255,.3); }
+    .conversation-item-content { flex: 1; min-width: 0; }
+    .conversation-item-actions { display: flex; gap: 8px; opacity: 0; transition: opacity 0.2s; margin-left: 8px; }
+    .conversation-item:hover .conversation-item-actions { opacity: 1; }
+    .delete-btn { padding: 6px 10px; background: rgba(255,100,100,.15); border: 1px solid rgba(255,100,100,.3); color: #ff6464; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+    .delete-btn:hover { background: rgba(255,100,100,.25); border-color: rgba(255,100,100,.5); }
     .conversation-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .conversation-meta { font-size: 11px; opacity: 0.6; display: flex; gap: 12px; }
     .conversation-preview { margin-top: 8px; padding: 10px; background: rgba(0,0,0,.2); border-radius: 8px; max-height: 300px; overflow-y: auto; }
@@ -86,7 +126,7 @@
     <aside class="panel">
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" id="settings-toggle">
-          <div style="font-weight:700;">[SETTINGS] Settings</div>
+          <div style="font-weight:700;">Settings</div>
           <span id="settings-arrow">▼</span>
         </div>
         <div id="settings-content" style="display:none; margin-top:10px;">
@@ -99,35 +139,37 @@
           <input id="api_key" type="password" placeholder="Leave empty to skip" />
 
           <label style="margin-top:10px;">Model</label>
-          <select id="model" style="width:100%; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px;">
+          <select id="model" style="width:100%; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px; margin-bottom:8px;">
             <option value="">-- Select Model --</option>
-            <optgroup label="OpenAI">
-              <option value="gpt-4o">gpt-4o</option>
-              <option value="gpt-4o-mini">gpt-4o-mini</option>
-              <option value="gpt-4-turbo">gpt-4-turbo</option>
-              <option value="gpt-4">gpt-4</option>
-              <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+            <optgroup label="OpenAI Models">
+              <option value="">Loading models from OpenAI...</option>
             </optgroup>
-            <optgroup label="Claude">
-              <option value="claude-3-opus-20240229">claude-3-opus</option>
-              <option value="claude-3-sonnet-20240229">claude-3-sonnet</option>
-              <option value="claude-3-haiku-20240307">claude-3-haiku</option>
-              <option value="claude-3-5-sonnet-20241022">claude-3.5-sonnet</option>
-            </optgroup>
-            <optgroup label="DeepSeek">
-              <option value="deepseek-chat">deepseek-chat</option>
-              <option value="deepseek-reasoner">deepseek-reasoner</option>
-            </optgroup>
-            <optgroup label="Other">
-              <option value="custom">Custom...
+            <optgroup label="Custom">
+              <option value="custom">Custom Model...</option>
             </optgroup>
           </select>
+          <button id="refresh-models-btn" style="width:100%; padding:10px 16px; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; cursor:pointer; margin-bottom:10px;">Refresh Models</button>
+          <div id="model-status" class="muted" style="font-size:12px; margin-bottom:10px; display:none;"></div>
           <input id="model_custom" placeholder="Enter custom model name" style="display:none; margin-top:6px;" />
 
+          <label style="margin-top:10px;">Max Input Tokens (context limit)</label>
+          <input id="max_input_tokens" type="number" placeholder="2000" min="100" max="128000" />
+          <div id="system_prompt_tokens_info" class="muted" style="font-size:12px; margin-top:2px;"></div>
+
+          <label style="margin-top:10px;">Max Output Tokens (response limit)</label>
+          <input id="max_output_tokens" type="number" placeholder="800" min="100" max="32000" />
+
+          <label style="margin-top:10px;">Temperature (0.0 = deterministic, 1.0 = creative)</label>
+          <input id="temperature" type="number" placeholder="0.7" min="0" max="2" step="0.1" />
+
+          <div style="margin-top:12px; display:flex; align-items:center; gap:8px;">
+            <input id="dev_mode" type="checkbox" style="width:auto; margin:0;" />
+            <label for="dev_mode" style="margin:0; cursor:pointer;">Developer Mode (show token usage)</label>
+          </div>
+
           <div style="display:flex; gap:10px; margin-top:12px;">
-            <button id="save">Save All</button>
-            <button id="save-model">Update Model Only</button>
-            <button id="health">Health</button>
+            <button id="save">Save</button>
+            <button id="health">Test Backend</button>
           </div>
         </div>
         <div id="status" class="muted" style="margin-top:10px;"></div>
@@ -136,7 +178,7 @@
       <!-- System Prompt Panel -->
       <div class="card" style="margin-top:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="font-weight:700;">[SYSTEM] System Prompt</div>
+          <div style="font-weight:700;">System Prompt</div>
         </div>
         <button id="open-system-prompt-window" style="width:100%; margin-top:10px; padding:12px; font-size:14px;">Edit System Prompt</button>
       </div>
@@ -144,7 +186,7 @@
       <!-- Conversation History Panel -->
       <div class="card" style="margin-top:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="font-weight:700;">[HISTORY] Chat History</div>
+          <div style="font-weight:700;">Chat History</div>
         </div>
         <button id="open-conversations-window" style="width:100%; margin-top:10px; padding:12px; font-size:14px;">Load Conversation History</button>
       </div>
@@ -152,9 +194,43 @@
       <!-- Memory Panel (Modal/Popup Mode) -->
       <div class="card" style="margin-top:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="font-weight:700;">[MEMORY] Memory</div>
+          <div style="font-weight:700;">Memory</div>
         </div>
         <button id="open-memory-window" style="width:100%; margin-top:10px; padding:12px; font-size:14px;">Open Memory Window</button>
+      </div>
+
+      <!-- User Profile Card -->
+      <div class="card" style="margin-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" id="profile-toggle">
+          <div style="font-weight:700;">👤 User Profile</div>
+          <span id="profile-arrow" style="font-size:10px;">▶</span>
+        </div>
+        <div id="profile-content" style="display:none; margin-top:10px;">
+          <label>Name / Nickname</label>
+          <input id="user_name" placeholder="e.g. Alice, John..." />
+          
+          <label style="margin-top:8px;">Age</label>
+          <input id="user_age" type="number" placeholder="e.g. 25" min="1" max="150" />
+          
+          <label style="margin-top:8px;">Gender</label>
+          <select id="user_gender" style="width:100%; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px;">
+            <option value="">-- Not specified --</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+          
+          <label style="margin-top:8px;">Occupation</label>
+          <input id="user_occupation" placeholder="e.g. Software Engineer..." />
+          
+          <label style="margin-top:8px;">Location</label>
+          <input id="user_location" placeholder="e.g. Beijing, China..." />
+          
+          <label style="margin-top:8px;">Short Bio</label>
+          <textarea id="user_bio" placeholder="Tell me about yourself..." style="min-height:60px;"></textarea>
+          
+          <button id="save-profile" style="width:100%; margin-top:10px; padding:10px 12px; background:rgba(80,120,255,.3); border-color:rgba(80,120,255,.4); font-weight:500;">Save Profile</button>
+        </div>
       </div>
     </aside>
 
@@ -162,7 +238,7 @@
     <div id="system-prompt-modal" class="modal">
       <div class="modal-content" style="max-width: 700px;">
         <div class="modal-header">
-          <h2>[SYSTEM] System Prompt</h2>
+          <h2>System Prompt</h2>
           <span class="modal-close" id="close-system-prompt-modal">&times;</span>
         </div>
         <div class="modal-body">
@@ -199,17 +275,18 @@
     <div id="conversations-modal" class="modal">
       <div class="modal-content" style="max-width: 700px;">
         <div class="modal-header">
-          <h2>[HISTORY] Conversation History</h2>
+          <h2>Conversation History</h2>
           <span class="modal-close" id="close-conversations-modal">&times;</span>
         </div>
         <div class="modal-body">
-          <!-- Search bar -->
-          <div style="margin-bottom:12px;">
-            <input id="conversation-search" type="text" placeholder="Search conversations..." style="width:100%; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px; outline:none;" />
+          <!-- Search bar and controls -->
+          <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
+            <input id="conversation-search" type="text" placeholder="Search conversations..." style="flex:1; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px; outline:none;" />
+            <button id="reload-conversations-btn" title="Reload from conversations.json" style="padding:10px 12px; font-size:12px; background:rgba(255,180,80,.2); border-color:rgba(255,180,80,.4); white-space:nowrap;">🔄 Reload</button>
           </div>
           
           <!-- Conversation list -->
-          <div id="conversation-list" style="max-height: 60vh; overflow-y: auto;">
+          <div id="conversation-list" style="max-height: 55vh; overflow-y: auto;">
             <div class="muted" style="text-align:center; padding:30px;">Loading conversations...</div>
           </div>
           
@@ -219,23 +296,33 @@
       </div>
     </div>
 
+    <!-- Custom Confirm Dialog -->
+    <div id="confirm-dialog" class="modal" style="display:none; z-index:9999;">
+      <div class="modal-content" style="max-width: 260px; max-height: 100px; background:rgba(20,30,60,.95); border:1px solid rgba(80,120,255,.3); display:flex; flex-direction:column;">
+        <div class="modal-body" style="padding:10px; flex:1; display:flex; flex-direction:column; justify-content:space-between;">
+          <h3 id="confirm-title" style="display:none;"></h3>
+          <p id="confirm-message" style="margin:0 0 8px 0; font-size:13px; color:rgba(231,238,252,.9); line-height:1.3; text-align:center;"></p>
+          <div style="display:flex; gap:8px; justify-content:center;">
+            <button id="confirm-cancel" style="padding:6px 16px; border-radius:4px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.08); color:#e7eefc; font-size:12px; cursor:pointer;">取消</button>
+            <button id="confirm-ok" style="padding:6px 16px; border-radius:4px; border:1px solid rgba(80,120,255,.4); background:rgba(80,120,255,.3); color:#e7eefc; font-size:12px; cursor:pointer;">确认</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Memory Modal Window -->
+
     <div id="memory-modal" class="modal">
       <div class="modal-content">
         <div class="modal-header">
-          <h2>[MEMORY] Memory</h2>
+          <h2>Memory</h2>
           <span class="modal-close" id="close-memory-modal">&times;</span>
         </div>
         <div class="modal-body">
-          <!-- Plugin Selection -->
-          <div style="margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,.08);">
-            <label style="font-size:12px; margin-bottom:4px; display:block;">[PLUGIN] Memory Plugin</label>
-            <select id="memory-plugin-select" style="width:100%; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:8px; font-size:12px; margin-bottom:8px;">
-              <option value="">Loading...</option>
-            </select>
-            <div id="plugin-info" class="muted" style="font-size:11px; padding:6px; background:rgba(255,255,255,.04); border-radius:4px; margin-bottom:8px;"></div>
-            <div id="plugin-features" style="display:flex; gap:4px; flex-wrap:wrap;"></div>
-          </div>
+          <!-- Plugin Selection (Hidden, always using vector memory) -->
+          <input type="hidden" id="memory-plugin-select" value="vector">
+          <div id="plugin-info" class="muted" style="font-size:11px; padding:6px; background:rgba(255,255,255,.04); border-radius:4px; margin-bottom:8px; display:none;"></div>
+          <div id="plugin-features" style="display:none; gap:4px; flex-wrap:wrap;"></div>
           
           <!-- Tab Switching -->
           <div class="tab-buttons">
@@ -247,8 +334,22 @@
 
           <!-- Memory List -->
           <div id="memories-tab" class="tab-content">
-            <div id="memory-list">
-              <div class="muted" style="text-align:center; padding:30px;">Click refresh to load memories...</div>
+            <!-- Core Memory -->
+            <div style="margin-bottom:16px;">
+              <div style="font-weight:600; font-size:12px; margin-bottom:8px; color:#80d8ff;">⭐ Core Memory</div>
+              <div id="core-memory-list" style="background:rgba(0,0,0,.2); border-radius:6px; padding:8px; min-height:60px; max-height:150px; overflow-y:auto; border:1px solid rgba(128,216,255,.2);">
+                <div class="muted" style="text-align:center; padding:20px; font-size:12px;">No core memories yet</div>
+              </div>
+            </div>
+            
+            <!-- Memory Library -->
+            <div>
+              <div style="font-weight:600; font-size:12px; margin-bottom:8px; color:#b3e5fc;">📚 Memory Library</div>
+              
+              <!-- Memory list -->
+              <div id="memory-library-list" style="background:rgba(0,0,0,.2); border-radius:6px; padding:8px; min-height:60px; max-height:200px; overflow-y:auto; border:1px solid rgba(179,229,252,.2);">
+                <div class="muted" style="text-align:center; padding:20px; font-size:12px;">Click refresh to load memories...</div>
+              </div>
             </div>
           </div>
 
@@ -275,14 +376,10 @@
           <!-- Add Memory -->
           <div style="margin-top:16px; padding-top:12px; border-top:1px solid rgba(255,255,255,.08);">
             <div style="font-weight:600; font-size:13px; margin-bottom:8px;">Add Memory</div>
-            <textarea id="new-memory" placeholder="Enter memory content (split by newline)..." style="width:100%; min-height:60px; font-size:12px; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:8px; outline:none;"></textarea>
-            <div style="display:flex; gap:6px; margin-top:8px;">
-              <input id="memory-tags" placeholder="Tags (comma separated)" style="flex:1; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; font-size:12px; outline:none;" />
-              <input id="memory-importance" type="number" min="0" max="1" step="0.1" value="0.5" style="width:70px; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; font-size:12px; outline:none;" />
-            </div>
+            <textarea id="new-memory" placeholder="Enter memory content..." style="width:100%; min-height:60px; font-size:12px; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:8px; outline:none;"></textarea>
             <div style="display:flex; gap:6px; margin-top:8px;">
               <button id="add-memory" style="flex:1; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(80,120,255,.2); color:#e7eefc; font-size:12px; cursor:pointer;">Add</button>
-              <button id="add-demo" style="flex:1; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.08); color:#e7eefc; font-size:12px; cursor:pointer;">Demo</button>
+              <button id="auto-select-core" style="flex:1; padding:8px; border-radius:8px; border:1px solid rgba(255,200,100,.3); background:rgba(255,200,100,.15); color:#e7eefc; font-size:12px; cursor:pointer;" title="Let AI select important memories for Core">🤖 Auto Core</button>
               <button id="clear-memory" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(255,80,80,.2); color:#e7eefc; font-size:12px; cursor:pointer;">Clear</button>
             </div>
             <div id="memory-status" class="muted" style="margin-top:8px; font-size:11px;"></div>
@@ -292,9 +389,25 @@
     </div>
 
     <main class="main">
+      <!-- Loaded conversation header (top) -->
+      <div id="loaded-conv-header" style="display:none; padding:8px 12px; background:rgba(80,120,255,.08); border-bottom:1px solid rgba(80,120,255,.2); border-radius:6px 6px 0 0; margin-bottom:0;">
+        <div style="display:flex; gap:8px; align-items:center; font-size:12px;">
+          <label style="color:rgba(255,255,255,.6); white-space:nowrap;">Title:</label>
+          <input id="loaded-conv-title-header" type="text" placeholder="Conversation title..." style="flex:1; border-radius:4px; border:1px solid rgba(255,255,255,.1); background:rgba(0,0,0,.2); color:#e7eefc; padding:4px 8px; font-size:12px; outline:none;" />
+          <span id="loaded-conv-meta-header" class="muted" style="font-size:10px; white-space:nowrap;"></span>
+        </div>
+      </div>
+      
       <div class="chatlog" id="chatlog"></div>
 
       <div class="card">
+        <!-- Loaded conversation footer (bottom) -->
+        <div id="loaded-conv-footer" style="display:none; padding:6px 10px; background:rgba(80,120,255,.08); border:1px solid rgba(80,120,255,.2); border-radius:4px; margin-bottom:10px;">
+          <div style="display:flex; gap:8px; align-items:center; justify-content:space-between; font-size:11px;">
+            <span id="loaded-conv-meta-footer" class="muted"></span>
+          </div>
+        </div>
+        
         <label>Message</label>
         <textarea id="msg" placeholder="Say something... (start backend first)"></textarea>
         <div style="display:flex; gap:10px; margin-top:10px;">
@@ -325,24 +438,106 @@
     }
   };
 
+  // User Profile collapse/expand toggle
+  document.getElementById("profile-toggle").onclick = () => {
+    const content = document.getElementById("profile-content");
+    const arrow = document.getElementById("profile-arrow");
+    if (content.style.display === "none") {
+      content.style.display = "block";
+      arrow.textContent = "▼";
+    } else {
+      content.style.display = "none";
+      arrow.textContent = "▶";
+    }
+  };
 
-  function addBubble(text, who) {
+
+  function addBubble(text, who, tokenInfo = null) {
     const div = document.createElement("div");
     div.className = "bubble " + (who === "user" ? "u" : "a");
     div.textContent = text;
+    
+    // 如果是assistant消息且开启了开发者模式，显示token详情
+    if (who === "assistant" && devModeEnabled && tokenInfo) {
+      const tokenDiv = document.createElement("div");
+      tokenDiv.className = "muted";
+      tokenDiv.style.cssText = "font-size:11px; margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1);";
+      tokenDiv.innerHTML = `<strong>Token Usage:</strong> prompt=${tokenInfo.prompt_tokens || 0}, completion=${tokenInfo.completion_tokens || 0}, total=${tokenInfo.total_tokens || 0}<br>` +
+        `<strong>Estimated:</strong> input=${tokenInfo.estimated_input_tokens || 0}, system_prompt=${tokenInfo.system_prompt_tokens || 0}`;
+      div.appendChild(tokenDiv);
+    }
+    
     chatlog.appendChild(div);
     chatlog.scrollTop = chatlog.scrollHeight;
   }
 
   // API function to call backend endpoints
-  async function api(path, method="GET", body=null) {
+  async function api(path, methodOrOptions="GET", body=null) {
     const url = "http://127.0.0.1:8787" + path;
-    const opt = { method, headers: { "Content-Type": "application/json" } };
-    if (body) opt.body = JSON.stringify(body);
+    let opt;
+    
+    // Support both old format: api(path, method, body) and new format: api(path, options)
+    if (typeof methodOrOptions === 'object' && methodOrOptions !== null) {
+      // New format: options object
+      opt = methodOrOptions;
+      if (!opt.headers) opt.headers = {};
+      if (!opt.headers['Content-Type']) opt.headers['Content-Type'] = 'application/json';
+    } else {
+      // Old format: (path, method, body)
+      const method = methodOrOptions;
+      opt = { method, headers: { "Content-Type": "application/json" } };
+      if (body) opt.body = JSON.stringify(body);
+    }
+    
     const res = await fetch(url, opt);
     if (!res.ok) throw new Error(await res.text());
     return await res.json();
   }
+
+  // ==================== Custom Confirm Dialog ====================
+  const confirmDialog = document.getElementById('confirm-dialog');
+  const confirmTitle = document.getElementById('confirm-title');
+  const confirmMessage = document.getElementById('confirm-message');
+  const confirmOkBtn = document.getElementById('confirm-ok');
+  const confirmCancelBtn = document.getElementById('confirm-cancel');
+  
+  async function showConfirm(message) {
+    return new Promise((resolve) => {
+      confirmTitle.style.display = 'none';
+      confirmMessage.textContent = message;
+      confirmDialog.style.display = 'flex';
+      
+      // Create handlers that resolve the promise and cleanup
+      const handleOk = () => {
+        confirmDialog.style.display = 'none';
+        confirmOkBtn.removeEventListener('click', handleOk);
+        confirmCancelBtn.removeEventListener('click', handleCancel);
+        confirmDialog.removeEventListener('click', handleBackgroundClick);
+        resolve(true);
+      };
+      
+      const handleCancel = () => {
+        confirmDialog.style.display = 'none';
+        confirmOkBtn.removeEventListener('click', handleOk);
+        confirmCancelBtn.removeEventListener('click', handleCancel);
+        confirmDialog.removeEventListener('click', handleBackgroundClick);
+        resolve(false);
+      };
+      
+      const handleBackgroundClick = (e) => {
+        if (e.target === confirmDialog) {
+          handleCancel();
+        }
+      };
+      
+      confirmOkBtn.addEventListener('click', handleOk);
+      confirmCancelBtn.addEventListener('click', handleCancel);
+      confirmDialog.addEventListener('click', handleBackgroundClick);
+    });
+  }
+
+  // Global dev mode flag
+  let devModeEnabled = false;
 
   async function loadSettings() {
     try {
@@ -367,11 +562,111 @@
         modelCustom.style.display = "block";
         modelCustom.value = savedModel;
       }
+      
+      // Load token limits
+      document.getElementById("max_input_tokens").value = s.max_input_tokens || "2000";
+      document.getElementById("max_output_tokens").value = s.max_output_tokens || "800";
+      
+      // Load temperature
+      document.getElementById("temperature").value = s.temperature !== undefined ? s.temperature : "0.7";
+      
+      // Load dev mode
+      document.getElementById("dev_mode").checked = s.dev_mode || false;
+      devModeEnabled = s.dev_mode || false;
+      
+      // Update system prompt tokens info
+      if (s.system_prompt) {
+        updateSystemPromptTokensInfo(s.system_prompt);
+      }
+      
       status.textContent = "Loaded settings (api_key hidden)";
+      
+      // Try to fetch OpenAI models if we have API key
+      if (s.api_key && s.base_url) {
+        fetchOpenAIModels(s.api_key, s.base_url);
+      }
     } catch (e) {
       status.textContent = "Backend not connected. Please start the backend.";
     }
   }
+
+  // Fetch OpenAI models list via backend
+  async function fetchOpenAIModels(apiKey, baseUrl) {
+    const statusEl = document.getElementById("model-status");
+    const modelSelect = document.getElementById("model");
+    
+    try {
+      statusEl.textContent = "⏳ Fetching models...";
+      statusEl.style.display = "block";
+      
+      // Call backend endpoint instead of OpenAI directly (to avoid CORS issues)
+      const response = await api("/models/fetch", {
+        method: "POST"
+      });
+      
+      if (response.error) {
+        let errorMsg = `❌ ${response.error}`;
+        if (response.hint) {
+          errorMsg += ` (${response.hint})`;
+        }
+        statusEl.textContent = errorMsg;
+        statusEl.style.display = "block";
+        console.error("Error fetching models:", response);
+        return;
+      }
+      
+      const models = response.models || [];
+      
+      if (models.length === 0) {
+        statusEl.textContent = "⚠️ No models found";
+        statusEl.style.display = "block";
+        return;
+      }
+      
+      // Clear existing options (except the custom option)
+      const openaiOptgroup = modelSelect.querySelector("optgroup[label='OpenAI Models']");
+      openaiOptgroup.innerHTML = '';
+      
+      // Add fetched models
+      models.forEach(model => {
+        const option = document.createElement("option");
+        option.value = model.id;
+        option.textContent = model.id;
+        openaiOptgroup.appendChild(option);
+      });
+      
+      statusEl.textContent = `✓ Loaded ${models.length} models from OpenAI`;
+      statusEl.style.display = "block";
+      
+    } catch (e) {
+      statusEl.textContent = `❌ Failed: ${e.message}`;
+      statusEl.style.display = "block";
+      console.error("Error fetching models:", e);
+    }
+  }
+
+  // Refresh models button
+  document.getElementById("refresh-models-btn").onclick = async () => {
+    const statusEl = document.getElementById("model-status");
+    const baseUrl = document.getElementById("base_url").value.trim();
+    const apiKey = document.getElementById("api_key").value.trim();
+    
+    if (!baseUrl) {
+      statusEl.textContent = "❌ Please enter Base URL first";
+      statusEl.style.display = "block";
+      return;
+    }
+    
+    if (!apiKey) {
+      statusEl.textContent = "❌ Please enter API Key first";
+      statusEl.style.display = "block";
+      return;
+    }
+    
+    statusEl.textContent = "⏳ Fetching models...";
+    statusEl.style.display = "block";
+    await fetchOpenAIModels(apiKey, baseUrl);
+  };
 
   // Model dropdown: show input when 'custom' is selected
   document.getElementById("model").onchange = () => {
@@ -402,52 +697,72 @@
       const base_url = document.getElementById("base_url").value.trim();
       const api_key = document.getElementById("api_key").value.trim();
       const model = getSelectedModel();
-      if (!base_url || !model) {
+      const max_input_tokens = parseInt(document.getElementById("max_input_tokens").value) || 2000;
+      const max_output_tokens = parseInt(document.getElementById("max_output_tokens").value) || 800;
+      const temperature = parseFloat(document.getElementById("temperature").value) || 0.7;
+      const dev_mode = document.getElementById("dev_mode").checked;
+      
+      // 获取当前设置，保留用户未修改的字段
+      const current = await api("/settings");
+      
+      // 只更新用户填写的字段
+      const updates = {
+        provider: "openai_compatible",
+        base_url: base_url || current.base_url,
+        model: model || current.model,
+        max_input_tokens,
+        max_output_tokens,
+        temperature,
+        dev_mode
+      };
+      
+      // 只有用户新填写了API key才更新（避免保存虚假的"********"）
+      if (api_key) {
+        updates.api_key = api_key;
+      } else if (current.api_key && current.api_key !== "********") {
+        // 保留现有的真实API key
+        updates.api_key = current.api_key;
+      }
+      
+      // 验证必要字段
+      if (!updates.base_url || !updates.model) {
         status.textContent = "Please fill in Base URL and Model";
         return;
       }
-      status.textContent = "Saving...";
-      // If api_key is empty, get the old one
-      let finalApiKey = api_key;
-      if (!finalApiKey) {
-        const old = await api("/settings");
-        finalApiKey = old.api_key === "********" ? "" : old.api_key;
-        if (!finalApiKey) {
-          status.textContent = "First setup requires filling in API Key";
-          return;
-        }
+      
+      if (max_input_tokens < 100 || max_input_tokens > 128000) {
+        status.textContent = "Max Input Tokens must be between 100 and 128000";
+        return;
       }
-      await api("/settings", "POST", { base_url, api_key: finalApiKey || api_key, model, provider: "openai_compatible" });
-      status.textContent = "All settings saved successfully!";
+      
+      if (max_output_tokens < 100 || max_output_tokens > 32000) {
+        status.textContent = "Max Output Tokens must be between 100 and 32000";
+        return;
+      }
+      
+      if (temperature < 0 || temperature > 2) {
+        status.textContent = "Temperature must be between 0 and 2";
+        return;
+      }
+      
+      status.textContent = "Saving...";
+      await api("/settings", "POST", updates);
+      devModeEnabled = dev_mode;
+      status.textContent = "Settings saved successfully!";
     } catch (e) {
       status.textContent = "Save failed: " + e.message;
     }
   };
 
-  document.getElementById("save-model").onclick = async () => {
-    const status = document.getElementById("status");
-    try {
-      const model = getSelectedModel();
-      if (!model) {
-        status.textContent = "Please select a model";
-        return;
-      }
-      status.textContent = "Updating model...";
-      await api("/settings/model", "POST", { model });
-      status.textContent = "Model updated to: " + model;
-    } catch (e) {
-      status.textContent = "Failed to update model: " + e.message;
-    }
-  };
 
   document.getElementById("health").onclick = async () => {
     const status = document.getElementById("status");
     try {
-      status.textContent = "Checking...";
+      status.textContent = "Testing...";
       const result = await api("/health");
-      status.textContent = "Backend OK: " + JSON.stringify(result);
+      status.textContent = "✓ Backend OK";
     } catch (e) {
-      status.textContent = "Backend connection failed: " + e.message;
+      status.textContent = "✗ Backend connection failed: " + e.message;
     }
   };
 
@@ -459,9 +774,48 @@
     addBubble(msg, "user");
     meta.textContent = "Waiting for reply...";
     try {
-      const out = await api("/chat", "POST", { user_message: msg, session_id: "default" });
-      addBubble(out.assistant_message, "assistant");
-      meta.textContent = `Mode=${out.mode} • Memory cards=${out.used_memory_cards.length}`;
+      // 获取用户信息
+      const userProfile = getUserProfile();
+      
+      const out = await api("/chat", "POST", { 
+        user_message: msg, 
+        session_id: "default",
+        user_profile: userProfile
+      });
+      addBubble(out.assistant_message, "assistant", out.token_info);
+      
+      // 构建状态信息
+      let statusText = `Mode=${out.mode} • Memory cards=${out.used_memory_cards.length}`;
+      
+      // 如果开启了开发者模式，显示token信息
+      if (devModeEnabled && out.token_info) {
+        const ti = out.token_info;
+        statusText += ` • Tokens: prompt=${ti.prompt_tokens || 0}, completion=${ti.completion_tokens || 0}, total=${ti.total_tokens || 0}`;
+        statusText += ` (est. input=${ti.estimated_input_tokens || 0}, system=${ti.system_prompt_tokens || 0})`;
+      }
+      
+      meta.textContent = statusText;
+      
+      // Auto-save conversation after each chat
+      // If no conversation is loaded, create a new one with auto-generated title
+      if (!currentLoadedConversation) {
+        // Create new conversation with first message as title
+        const autoTitle = msg.substring(0, 50) + (msg.length > 50 ? '...' : '');
+        currentLoadedConversation = {
+          conversation_id: `engine_${Date.now()}`,
+          title: autoTitle,
+          messages: []
+        };
+        // Show the header/footer
+        loadedConvHeader.style.display = 'block';
+        loadedConvFooter.style.display = 'block';
+        loadedConvTitleHeader.value = autoTitle;
+        loadedConvMetaHeader.textContent = `ID: ${currentLoadedConversation.conversation_id}`;
+      }
+      
+      console.log('[DEBUG] Auto-saving conversation after chat...');
+      await saveCurrentConversation();
+      
     } catch (e) {
       addBubble("Backend error: " + e.message, "assistant");
       meta.textContent = "Request failed";
@@ -488,6 +842,12 @@
   document.getElementById("clear").onclick = async () => {
     chatlog.innerHTML = "";
     meta.textContent = "Clearing...";
+    
+    // Hide loaded conversation UI
+    loadedConvHeader.style.display = 'none';
+    loadedConvFooter.style.display = 'none';
+    currentLoadedConversation = null;
+    
     try {
       await api("/clear-history", "POST", { session_id: "default" });
       meta.textContent = "Chat history cleared";
@@ -513,7 +873,7 @@
   
   // 当前选中的模板内容和ID
   let currentTemplateContent = '';
-  let lastSelectedTemplateId = 'custom'; // 默认为custom
+  let lastSelectedTemplateId = 'warm'; // 默认为warm
   
   // 加载模板列表
   async function loadTemplatesList() {
@@ -548,6 +908,18 @@
     }
   }
   
+  // 计算并显示system prompt的token数
+  function updateSystemPromptTokensInfo(content) {
+    const tokensInfo = document.getElementById('system_prompt_tokens_info');
+    if (!content) {
+      tokensInfo.textContent = '';
+      return;
+    }
+    // 近似计算token数（4字符≈1 token）
+    const estimatedTokens = Math.ceil(content.length / 4);
+    tokensInfo.textContent = `Current system prompt: ~${estimatedTokens} tokens`;
+  }
+  
   // 加载指定模板
   async function loadTemplateContent(templateId) {
     try {
@@ -556,6 +928,9 @@
       if (data.status === 'success') {
         currentTemplateContent = data.content;
         systemPromptStatus.textContent = `Using: ${data.title}`;
+        
+        // 更新system prompt tokens显示
+        updateSystemPromptTokensInfo(data.content);
         
         // 自动保存到backend
         await api('/settings/system-prompt', 'POST', {
@@ -615,7 +990,7 @@
       const savedPrompt = data.system_prompt || '';
       
       // 从本地存储恢复上次选择的模板ID
-      const savedTemplateId = localStorage.getItem('lastSelectedTemplateId') || 'custom';
+      const savedTemplateId = localStorage.getItem('lastSelectedTemplateId') || 'warm';
       lastSelectedTemplateId = savedTemplateId;
       
       if (savedPrompt) {
@@ -701,9 +1076,18 @@
   const openConversationsBtn = document.getElementById('open-conversations-window');
   const closeConversationsBtn = document.getElementById('close-conversations-modal');
   const conversationSearch = document.getElementById('conversation-search');
+  const reloadConversationsBtn = document.getElementById('reload-conversations-btn');
+  
+  // New UI elements in chat window
+  const loadedConvHeader = document.getElementById('loaded-conv-header');
+  const loadedConvFooter = document.getElementById('loaded-conv-footer');
+  const loadedConvTitleHeader = document.getElementById('loaded-conv-title-header');
+  const loadedConvMetaHeader = document.getElementById('loaded-conv-meta-header');
+  const loadedConvMetaFooter = document.getElementById('loaded-conv-meta-footer');
   
   let conversationsList = [];
   let selectedConversationId = null;
+  let currentLoadedConversation = null;  // Track currently loaded conversation
   
   // Open conversations window
   openConversationsBtn.onclick = () => {
@@ -720,6 +1104,123 @@
   conversationsModal.onclick = (e) => {
     if (e.target === conversationsModal) {
       conversationsModal.classList.remove('show');
+    }
+  };
+  
+  // Reload conversations from conversations.json
+  reloadConversationsBtn.onclick = async () => {
+    const statusEl = document.getElementById('conversation-status');
+    
+    // Show custom confirm dialog
+    const confirmed = await showConfirm('重新加载初始聊天记录？');
+    
+    if (!confirmed) {
+      return;
+    }
+    
+    try {
+      reloadConversationsBtn.disabled = true;
+      reloadConversationsBtn.textContent = '⏳ Reloading...';
+      statusEl.textContent = 'Reloading conversations from original file...';
+      
+      const result = await api('/engine-conversations/reload', { method: 'POST' });
+      
+      if (result.ok) {
+        statusEl.textContent = '✓ Conversations reloaded successfully';
+        await loadConversationsList();
+      } else {
+        statusEl.textContent = 'Error: ' + (result.error || 'Failed to reload');
+      }
+    } catch (e) {
+      statusEl.textContent = 'Failed to reload: ' + e.message;
+    } finally {
+      reloadConversationsBtn.disabled = false;
+      reloadConversationsBtn.textContent = '🔄 Reload';
+    }
+  };
+  
+  // Update title in both header and footer when user types
+  loadedConvTitleHeader.oninput = () => {
+    if (currentLoadedConversation) {
+      currentLoadedConversation.title = loadedConvTitleHeader.value;
+    }
+  };
+  
+  // Helper function to save current conversation to file
+  async function saveCurrentConversation() {
+    const messages = [];
+    let messageIndex = 0;
+    chatlog.querySelectorAll('.bubble').forEach(bubble => {
+      // Note: addBubble uses 'u' for user, 'a' for assistant
+      const role = bubble.classList.contains('u') ? 'user' : 'assistant';
+      
+      // Extract only the message content, excluding token info div
+      let content = bubble.textContent;
+      
+      // If this is an assistant message and there's a muted token div child, remove its text
+      if (role === 'assistant') {
+        const tokenDiv = bubble.querySelector('.muted');
+        if (tokenDiv) {
+          // Get text excluding the token div
+          const textNodes = [];
+          for (let child of bubble.childNodes) {
+            if (child.nodeType === Node.TEXT_NODE) {
+              textNodes.push(child.textContent);
+            }
+          }
+          content = textNodes.join('').trim() || content.replace(tokenDiv.textContent, '').trim();
+        }
+      }
+      
+      messages.push({ 
+        id: `msg_${messageIndex++}`,
+        role, 
+        content 
+      });
+    });
+    
+    if (messages.length === 0) {
+      console.log('[DEBUG] No messages to save');
+      return;
+    }
+    
+    console.log('[DEBUG] Messages to save:', JSON.stringify(messages, null, 2));
+    
+    const title = loadedConvTitleHeader.value.trim() || `Conversation ${new Date().toLocaleString()}`;
+    const conversationId = currentLoadedConversation?.conversation_id || `engine_${Date.now()}`;
+    
+    try {
+      console.log('[DEBUG] Auto-saving conversation:', conversationId);
+      
+      const result = await api('/engine-conversations/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          title: title,
+          messages: messages
+        })
+      });
+      
+      if (result.ok) {
+        currentLoadedConversation = {
+          conversation_id: result.conversation_id,
+          title: result.title,
+          messages: messages
+        };
+        loadedConvTitleHeader.value = result.title;
+        loadedConvMetaHeader.textContent = `ID: ${result.conversation_id}`;
+        loadedConvMetaFooter.textContent = `📝 ${messages.length} messages | ✓ Saved`;
+        
+        // Refresh the list
+        await loadConversationsList();
+        
+        console.log('[DEBUG] Conversation auto-saved successfully');
+      } else {
+        console.error('[DEBUG] Failed to save:', result.error);
+      }
+    } catch (e) {
+      console.error('[DEBUG] Failed to save:', e.message);
     }
   };
   
@@ -740,7 +1241,8 @@
     try {
       listEl.innerHTML = '<div class="muted" style="text-align:center; padding:30px;">Loading...</div>';
       
-      const url = query ? `/conversations?query=${encodeURIComponent(query)}` : '/conversations';
+      // Use engine-conversations endpoint (read-write file)
+      const url = query ? `/engine-conversations?query=${encodeURIComponent(query)}` : '/engine-conversations';
       const data = await api(url);
       conversationsList = data.conversations || [];
       
@@ -752,10 +1254,15 @@
       
       listEl.innerHTML = conversationsList.map(conv => `
         <div class="conversation-item" data-id="${conv.conversation_id}">
-          <div class="conversation-title">${escapeHtml(conv.title)}</div>
-          <div class="conversation-meta">
-            <span>Messages: ${conv.message_count}</span>
-            <span>${conv.update_time ? formatDate(conv.update_time) : 'Unknown date'}</span>
+          <div class="conversation-item-content">
+            <div class="conversation-title">${escapeHtml(conv.title)}</div>
+            <div class="conversation-meta">
+              <span>Messages: ${conv.message_count}</span>
+              <span>${conv.update_time ? formatDate(conv.update_time) : 'Unknown date'}</span>
+            </div>
+          </div>
+          <div class="conversation-item-actions">
+            <button class="delete-btn" onclick="event.stopPropagation(); deleteConversation('${conv.conversation_id}')">Delete</button>
           </div>
         </div>
       `).join('');
@@ -786,6 +1293,44 @@
   }
   
   // Select and load a conversation
+  async function deleteConversation(conversationId) {
+    if (!confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      const statusEl = document.getElementById('conversation-status');
+      statusEl.textContent = 'Deleting...';
+      
+      // For now, we can only delete using the available API
+      // This is a client-side delete simulation - you may need to implement a backend delete endpoint
+      const data = await api(`/engine-conversations/delete/${conversationId}`, {
+        method: 'POST'
+      });
+      
+      if (data.error) {
+        statusEl.textContent = `Error: ${data.error}`;
+        return;
+      }
+      
+      // Reload conversations list
+      loadConversationsList();
+      statusEl.textContent = 'Conversation deleted';
+      
+      // If this was the selected conversation, clear preview
+      if (selectedConversationId === conversationId) {
+        const previewEl = document.getElementById('conversation-list').querySelector('.conversation-preview');
+        if (previewEl) {
+          previewEl.remove();
+        }
+        selectedConversationId = null;
+      }
+      
+    } catch (e) {
+      document.getElementById('conversation-status').textContent = `Delete failed: ${e.message}`;
+    }
+  }
+
   async function selectConversation(conversationId) {
     const statusEl = document.getElementById('conversation-status');
     const listEl = document.getElementById('conversation-list');
@@ -800,7 +1345,8 @@
     try {
       statusEl.textContent = 'Loading conversation...';
       
-      const data = await api(`/conversations/${conversationId}`);
+      // Use engine-conversations endpoint (read-write file)
+      const data = await api(`/engine-conversations/${conversationId}`);
       
       if (data.error) {
         statusEl.textContent = data.error;
@@ -850,22 +1396,71 @@
   }
   
   // Load conversation to main chat
-  function loadConversationToChat(conversationData) {
-    // Clear current chat
-    chatlog.innerHTML = '';
+  async function loadConversationToChat(conversationData) {
+    const statusEl = document.getElementById('conversation-status');
     
-    // Add messages to chat
-    conversationData.messages.forEach(msg => {
-      if (msg.role === 'user' || msg.role === 'assistant') {
-        addBubble(msg.content, msg.role === 'user' ? 'user' : 'assistant');
+    try {
+      statusEl.textContent = 'Loading to chat context...';
+      console.log('[DEBUG] Loading conversation to context:', conversationData.conversation_id);
+      
+      // Load to agent's context first
+      const result = await api('/load-conversation-to-context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: conversationData.conversation_id,
+          session_id: 'default'
+        })
+      });
+      
+      console.log('[DEBUG] API response:', result);
+      
+      if (!result.ok) {
+        statusEl.textContent = 'Warning: Failed to load to agent context: ' + (result.error || 'Unknown error');
+        console.error('[DEBUG] Failed to load context:', result.error);
+      } else {
+        statusEl.textContent = `✓ Loaded ${result.message_count} messages to context`;
       }
-    });
-    
-    // Close modal
-    conversationsModal.classList.remove('show');
-    
-    // Update meta
-    meta.textContent = `Loaded conversation: ${conversationData.title} (${conversationData.messages.length} messages)`;
+      
+      // Clear current chat
+      chatlog.innerHTML = '';
+      
+      // Add messages to chat display
+      conversationData.messages.forEach(msg => {
+        if (msg.role === 'user' || msg.role === 'assistant') {
+          addBubble(msg.content, msg.role === 'user' ? 'user' : 'assistant');
+        }
+      });
+      
+      // Update current loaded conversation tracker
+      currentLoadedConversation = conversationData;
+      
+      // Show loaded conversation header and footer
+      loadedConvHeader.style.display = 'block';
+      loadedConvFooter.style.display = 'block';
+      loadedConvTitleHeader.value = conversationData.title;
+      loadedConvMetaHeader.textContent = `ID: ${conversationData.conversation_id}`;
+      loadedConvMetaFooter.textContent = `📝 ${conversationData.messages.length} messages`;
+      
+      // Close modal
+      conversationsModal.classList.remove('show');
+      
+      // Update meta
+      meta.textContent = `Loaded: ${conversationData.title} (${conversationData.messages.length} messages) - Context synced`;
+      
+    } catch (e) {
+      console.error('[DEBUG] Exception:', e);
+      statusEl.textContent = 'Failed to load: ' + e.message;
+      // Still show the messages even if context sync failed
+      chatlog.innerHTML = '';
+      conversationData.messages.forEach(msg => {
+        if (msg.role === 'user' || msg.role === 'assistant') {
+          addBubble(msg.content, msg.role === 'user' ? 'user' : 'assistant');
+        }
+      });
+      conversationsModal.classList.remove('show');
+      meta.textContent = `Loaded: ${conversationData.title} (display only - context sync failed)`;
+    }
   }
 
   // ==================== Memory Modal Window ====================
@@ -923,81 +1518,10 @@
     };
   });
 
-  // Load available plugins list
-  async function loadPlugins() {
-    const select = document.getElementById('memory-plugin-select');
-    const pluginInfo = document.getElementById('plugin-info');
-    const pluginFeatures = document.getElementById('plugin-features');
-    
-    try {
-      // Get available plugins
-      const pluginsRes = await api("/memory/plugins");
-      availablePlugins = pluginsRes.plugins || [];
-      
-      // Get currently active plugin
-      const activeRes = await api("/memory/plugins/active");
-      currentPluginId = activeRes.id;
-      
-      // Populate dropdown menu
-      select.innerHTML = availablePlugins.map(p => 
-        `<option value="${p.id}" ${p.id === currentPluginId ? 'selected' : ''}>${p.name}</option>`
-      ).join('');
-      
-      // Display current plugin info
-      updatePluginInfo(currentPluginId);
-      
-    } catch (e) {
-      select.innerHTML = '<option value="">Failed to load</option>';
-      pluginInfo.textContent = 'Unable to connect to backend';
-    }
-  }
-  
-  // Update plugin info display
-  function updatePluginInfo(pluginId) {
-    const plugin = availablePlugins.find(p => p.id === pluginId);
-    const pluginInfo = document.getElementById('plugin-info');
-    const pluginFeatures = document.getElementById('plugin-features');
-    
-    if (plugin) {
-      pluginInfo.innerHTML = `
-        <strong>${plugin.name}</strong> v${plugin.version}<br/>
-        ${plugin.description}
-      `;
-      
-      // Display feature tags
-      const features = [];
-      if (plugin.supports_vector_search) features.push('<span class="memory-tag" style="background:rgba(100,200,255,.2);">Vector Search</span>');
-      if (plugin.supports_graph) features.push('<span class="memory-tag" style="background:rgba(255,200,100,.2);">Knowledge Graph</span>');
-      if (plugin.supports_temporal) features.push('<span class="memory-tag" style="background:rgba(100,255,100,.2);">Temporal Retrieval</span>');
-      
-      pluginFeatures.innerHTML = features.join('');
-    }
-  }
-  
-  // Switch plugin handler
-  document.getElementById('memory-plugin-select').onchange = async (e) => {
-    const newPluginId = e.target.value;
-    const memoryStatus = document.getElementById('memory-status');
-    
-    if (newPluginId && newPluginId !== currentPluginId) {
-      try {
-        memoryStatus.textContent = `Switching to ${newPluginId}...`;
-        await api("/memory/plugins/switch", "POST", { plugin_id: newPluginId });
-        currentPluginId = newPluginId;
-        updatePluginInfo(newPluginId);
-        memoryStatus.textContent = `Switched to ${availablePlugins.find(p => p.id === newPluginId)?.name || newPluginId}`;
-        loadMemory();
-      } catch (e) {
-        memoryStatus.textContent = `Switch failed: ${e.message}`;
-        // Restore selection
-        document.getElementById('memory-plugin-select').value = currentPluginId;
-      }
-    }
-  };
-
-  // Load and display memories
+  // Load and display memories (two-list system)
   async function loadMemory() {
-    const memoryList = document.getElementById('memory-list');
+    const coreMemoryList = document.getElementById('core-memory-list');
+    const memoryLibraryList = document.getElementById('memory-library-list');
     const entityList = document.getElementById('entity-list');
     const relationList = document.getElementById('relation-list');
     const memoryStats = document.getElementById('memory-stats');
@@ -1006,27 +1530,59 @@
       // Use visualization API
       const data = await api("/memory/visualization");
       
-      // Display memory list
+      // Display memory list (split into core and library based on importance)
       const memories = data.recent_memories || (data.memory_tree?.recent_memories) || [];
       
-      if (memories.length > 0) {
-        memoryList.innerHTML = memories.map(m => `
-          <div class="memory-item">
+      // Core memory: importance >= 0.8 (memories marked as important)
+      // Library: importance < 0.8
+      const CORE_THRESHOLD = 0.8;
+      
+      const coreMemories = memories.filter(m => 
+        ((m.effective_importance || m.importance) || 0) >= CORE_THRESHOLD
+      );
+      
+      const libraryMemories = memories.filter(m => 
+        ((m.effective_importance || m.importance) || 0) < CORE_THRESHOLD
+      );
+      
+      // Display core memories
+      if (coreMemories.length > 0) {
+        coreMemoryList.innerHTML = coreMemories.map(m => `
+          <div class="memory-item core-item" data-id="${m.id || m.content.substring(0,30)}" data-content="${escapeHtml(m.content)}">
             <div class="memory-content">${escapeHtml(m.content)}</div>
-            <div class="importance-bar"><div class="importance-fill" style="width:${((m.effective_importance || m.importance) * 100).toFixed(0)}%"></div></div>
             <div class="memory-meta">
-              <span>Date: ${new Date(m.timestamp).toLocaleString('en-US')}</span>
-              <span>Importance: ${((m.effective_importance || m.importance) * 100).toFixed(0)}%</span>
-              ${m.mention_count > 0 ? `<span>Mentions: ${m.mention_count}</span>` : ''}
-            </div>
-            <div style="margin-top:4px;">
-              ${(m.emotion_tags || []).map(t => `<span class="memory-tag emotion">${t}</span>`).join('')}
-              ${(m.topic_tags || []).map(t => `<span class="memory-tag topic">${t}</span>`).join('')}
+              <span>${new Date(m.timestamp).toLocaleDateString()}</span>
+              <span style="color:#80d8ff; font-weight:600;">${((m.effective_importance || m.importance) * 100).toFixed(0)}%</span>
             </div>
           </div>
         `).join('');
+        
+        // Add context menu to core items
+        coreMemoryList.querySelectorAll('.core-item').forEach(item => {
+          item.oncontextmenu = (e) => showCoreMemoryContextMenu(e, item);
+        });
       } else {
-        memoryList.innerHTML = '<div class="muted" style="text-align:center; padding:20px;">No memories found. Try adding demo data.</div>';
+        coreMemoryList.innerHTML = '<div class="muted" style="text-align:center; padding:20px; font-size:12px;">No core memories yet</div>';
+      }
+      
+      // Display memory library
+      if (libraryMemories.length > 0) {
+        memoryLibraryList.innerHTML = libraryMemories.map(m => `
+          <div class="memory-item library-item" data-id="${m.id || m.content.substring(0,30)}" data-content="${escapeHtml(m.content)}">
+            <div class="memory-content">${escapeHtml(m.content)}</div>
+            <div class="memory-meta">
+              <span>${new Date(m.timestamp).toLocaleDateString()}</span>
+              <span style="opacity:0.6; font-size:11px;">${((m.effective_importance || m.importance) * 100).toFixed(0)}%</span>
+            </div>
+          </div>
+        `).join('');
+        
+        // Add context menu to library items
+        memoryLibraryList.querySelectorAll('.library-item').forEach(item => {
+          item.oncontextmenu = (e) => showLibraryMemoryContextMenu(e, item);
+        });
+      } else {
+        memoryLibraryList.innerHTML = '<div class="muted" style="text-align:center; padding:20px; font-size:12px;">Click refresh to load memories or add new ones below...</div>';
       }
       
       // Display entities (if plugin supports)
@@ -1064,25 +1620,439 @@
       const pluginName = availablePlugins.find(p => p.id === activePlugin)?.name || activePlugin;
       
       memoryStats.innerHTML = `
-        <div class="stat-row"><span>Current Plugin</span><strong>${pluginName}</strong></div>
+        <div class="stat-row"><span>Vector Memory Plugin</span><strong>Active</strong></div>
         <div class="stat-row"><span>Total Memories</span><strong>${stats.total_memories || memories.length}</strong></div>
         ${stats.total_entities ? `<div class="stat-row"><span>Entities</span><strong>${stats.total_entities}</strong></div>` : ''}
         ${stats.total_relationships ? `<div class="stat-row"><span>Relationships</span><strong>${stats.total_relationships}</strong></div>` : ''}
-        ${stats.memory_by_importance ? `
-          <div style="margin-top:8px; font-size:11px;">
-            <div class="stat-row"><span>High Importance</span><span>${stats.memory_by_importance.high || 0}</span></div>
-            <div class="stat-row"><span>Medium Importance</span><span>${stats.memory_by_importance.medium || 0}</span></div>
-            <div class="stat-row"><span>Low Importance</span><span>${stats.memory_by_importance.low || 0}</span></div>
-          </div>
-        ` : ''}
         <div style="margin-top:8px; font-size:10px; opacity:0.5;">
-          Available Plugins: ${(data.available_plugins || []).map(p => p.name).join(', ')}
+          Right-click library memories to move to core
         </div>
       `;
       
     } catch (e) {
-      memoryList.innerHTML = `<div class="muted" style="text-align:center; padding:20px;">Failed to load: ${e.message}</div>`;
+      coreMemoryList.innerHTML = `<div class="muted" style="text-align:center; padding:20px; font-size:12px;">Error: ${e.message}</div>`;
     }
+  }
+  
+  // Core memory keywords for auto-detection (stricter matching with context awareness)
+  const CORE_KEYWORDS = [
+    // 称呼相关
+    '名字', '叫做', '称呼', '昵称', '我是', '我叫', 
+    'my name', 'call me', 'i am', 'i\'m', 'my name is',
+    // 职业相关
+    '职业', '工作', '职位', '我的工作', '任职', 
+    'job', 'work as', 'career', 'profession', 'employed',
+    // 家庭关系
+    '妻子', '丈夫', '孩子', '儿子', '女儿', '父亲', '母亲', '爸爸', '妈妈', '家人',
+    'wife', 'husband', 'son', 'daughter', 'father', 'mother', 'parent', 'family',
+    // 核心个人信息
+    '年龄', '生日', '出生', 
+    'age', 'born', 'birthday', 'years old',
+    // 城市/地点（严格匹配，避免"from game"误匹配）
+    '住在', '生活在', '来自于', 
+    'live in', 'live at', 'from', 'located in', 'living in', 'hometown', 'city:'
+  ];
+  
+  // Exclusion patterns to avoid false positives
+  const EXCLUSION_PATTERNS = [
+    /from the game/i,
+    /from a game/i,
+    /from.*game/i,
+    /from.*book/i,
+    /from.*movie/i,
+    /from.*show/i,
+    /from.*series/i
+  ];
+  
+  // Check if memory content matches core keywords (with stricter word boundary logic)
+  function matchesCoreKeywords(content) {
+    const lowerContent = content.toLowerCase();
+    
+    // First check exclusion patterns (false positive prevention)
+    for (let pattern of EXCLUSION_PATTERNS) {
+      if (pattern.test(lowerContent)) {
+        return false;  // Exclude this memory from core
+      }
+    }
+    
+    // 使用单词边界匹配，避免部分单词误匹配
+    let matches = 0;
+    CORE_KEYWORDS.forEach(keyword => {
+      // 创建正则表达式，使用单词边界(\b)
+      const lowerKeyword = keyword.toLowerCase();
+      
+      // 对于英文关键词使用单词边界正则
+      if (/^[a-z\s':\-]+$/.test(lowerKeyword)) {
+        // 英文：使用单词边界
+        const regex = new RegExp(`\\b${lowerKeyword.replace(/\s+/g, '\\s+')}\\b`, 'g');
+        if (regex.test(lowerContent)) {
+          matches++;
+        }
+      } else {
+        // 中文：使用includes（因为\b对中文效果不好）
+        if (lowerContent.includes(lowerKeyword)) {
+          matches++;
+        }
+      }
+    });
+    
+    return matches > 0;
+  }
+  
+  // Context menu for CORE memory items (delete + move to library)
+  function showCoreMemoryContextMenu(e, item) {
+    e.preventDefault();
+    
+    // Remove existing context menu
+    const existing = document.querySelector('.memory-context-menu');
+    if (existing) existing.remove();
+    
+    const menu = document.createElement('div');
+    menu.className = 'memory-context-menu';
+    menu.style.cssText = `
+      position: fixed;
+      top: ${e.clientY}px;
+      left: ${e.clientX}px;
+      background: rgba(0,0,0,.85);
+      border: 1px solid rgba(128,216,255,.3);
+      border-radius: 6px;
+      padding: 4px;
+      z-index: 10000;
+      box-shadow: 0 4px 12px rgba(0,0,0,.5);
+    `;
+    
+    // Move to Library option
+    const moveOption = document.createElement('div');
+    moveOption.style.cssText = `
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #b3e5fc;
+      cursor: pointer;
+      border-radius: 4px;
+      user-select: none;
+    `;
+    moveOption.textContent = '📚 Move to Library';
+    moveOption.onmouseover = () => moveOption.style.background = 'rgba(128,216,255,.15)';
+    moveOption.onmouseout = () => moveOption.style.background = 'transparent';
+    moveOption.onclick = () => {
+      const libraryList = document.getElementById('memory-library-list');
+      const clone = item.cloneNode(true);
+      clone.classList.add('library-item');
+      clone.oncontextmenu = (e) => showLibraryMemoryContextMenu(e, clone);
+      
+      // Remove muted placeholder if exists
+      const placeholder = libraryList.querySelector('.muted');
+      if (placeholder) placeholder.remove();
+      
+      libraryList.insertBefore(clone, libraryList.firstChild);
+      item.remove();
+      
+      // Check if core list is empty
+      const coreList = document.getElementById('core-memory-list');
+      if (!coreList.querySelector('.memory-item')) {
+        coreList.innerHTML = '<div class="muted" style="text-align:center; padding:20px; font-size:12px;">No core memories yet</div>';
+      }
+      
+      console.log('[DEBUG] Moved memory to library:', item.dataset.content);
+      menu.remove();
+    };
+    
+    // Delete option
+    const deleteOption = document.createElement('div');
+    deleteOption.style.cssText = `
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #ff8080;
+      cursor: pointer;
+      border-radius: 4px;
+      user-select: none;
+    `;
+    deleteOption.textContent = '🗑️ Delete';
+    deleteOption.onmouseover = () => deleteOption.style.background = 'rgba(255,80,80,.15)';
+    deleteOption.onmouseout = () => deleteOption.style.background = 'transparent';
+    deleteOption.onclick = async () => {
+      if (!confirm('Delete this memory?')) {
+        menu.remove();
+        return;
+      }
+      
+      const memoryId = item.dataset.id;
+      try {
+        await api('/memory/delete', 'POST', { memory_id: memoryId });
+        console.log('[DEBUG] Deleted memory:', memoryId);
+      } catch (err) {
+        console.error('Failed to delete from backend:', err);
+      }
+      
+      item.remove();
+      
+      // Check if core list is empty
+      const coreList = document.getElementById('core-memory-list');
+      if (!coreList.querySelector('.memory-item')) {
+        coreList.innerHTML = '<div class="muted" style="text-align:center; padding:20px; font-size:12px;">No core memories yet</div>';
+      }
+      
+      menu.remove();
+    };
+    
+    menu.appendChild(moveOption);
+    menu.appendChild(deleteOption);
+    document.body.appendChild(menu);
+    
+    // Close menu on click elsewhere
+    setTimeout(() => {
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.memory-context-menu')) {
+          menu.remove();
+        }
+      }, { once: true });
+    }, 0);
+  }
+  
+  // Context menu for LIBRARY memory items (move to core + delete)
+  function showLibraryMemoryContextMenu(e, item) {
+    e.preventDefault();
+    
+    // Remove existing context menu
+    const existing = document.querySelector('.memory-context-menu');
+    if (existing) existing.remove();
+    
+    const menu = document.createElement('div');
+    menu.className = 'memory-context-menu';
+    menu.style.cssText = `
+      position: fixed;
+      top: ${e.clientY}px;
+      left: ${e.clientX}px;
+      background: rgba(0,0,0,.85);
+      border: 1px solid rgba(128,216,255,.3);
+      border-radius: 6px;
+      padding: 4px;
+      z-index: 10000;
+      box-shadow: 0 4px 12px rgba(0,0,0,.5);
+    `;
+    
+    // Move to Core option
+    const moveOption = document.createElement('div');
+    moveOption.style.cssText = `
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #80d8ff;
+      cursor: pointer;
+      border-radius: 4px;
+      user-select: none;
+    `;
+    moveOption.textContent = '⭐ Move to Core Memory';
+    moveOption.onmouseover = () => moveOption.style.background = 'rgba(128,216,255,.15)';
+    moveOption.onmouseout = () => moveOption.style.background = 'transparent';
+    moveOption.onclick = () => {
+      const coreList = document.getElementById('core-memory-list');
+      const clone = item.cloneNode(true);
+      clone.classList.remove('library-item');
+      clone.classList.add('core-item');
+      clone.oncontextmenu = (e) => showCoreMemoryContextMenu(e, clone);
+      
+      // Remove muted placeholder if exists
+      const placeholder = coreList.querySelector('.muted');
+      if (placeholder) placeholder.remove();
+      
+      coreList.insertBefore(clone, coreList.firstChild);
+      item.remove();
+      
+      // Check if library list is empty
+      const libraryList = document.getElementById('memory-library-list');
+      if (!libraryList.querySelector('.memory-item')) {
+        libraryList.innerHTML = '<div class="muted" style="text-align:center; padding:20px; font-size:12px;">No memories in library</div>';
+      }
+      
+      console.log('[DEBUG] Moved memory to core:', item.dataset.content);
+      menu.remove();
+    };
+    
+    // Delete option
+    const deleteOption = document.createElement('div');
+    deleteOption.style.cssText = `
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #ff8080;
+      cursor: pointer;
+      border-radius: 4px;
+      user-select: none;
+    `;
+    deleteOption.textContent = '🗑️ Delete';
+    deleteOption.onmouseover = () => deleteOption.style.background = 'rgba(255,80,80,.15)';
+    deleteOption.onmouseout = () => deleteOption.style.background = 'transparent';
+    deleteOption.onclick = async () => {
+      if (!confirm('Delete this memory?')) {
+        menu.remove();
+        return;
+      }
+      
+      const memoryId = item.dataset.id;
+      try {
+        await api('/memory/delete', 'POST', { memory_id: memoryId });
+        console.log('[DEBUG] Deleted memory:', memoryId);
+      } catch (err) {
+        console.error('Failed to delete from backend:', err);
+      }
+      
+      item.remove();
+      
+      // Check if library list is empty
+      const libraryList = document.getElementById('memory-library-list');
+      if (!libraryList.querySelector('.memory-item')) {
+        libraryList.innerHTML = '<div class="muted" style="text-align:center; padding:20px; font-size:12px;">No memories in library</div>';
+      }
+      
+      menu.remove();
+    };
+    
+    menu.appendChild(moveOption);
+    menu.appendChild(deleteOption);
+    document.body.appendChild(menu);
+    
+    // Close menu on click elsewhere
+    setTimeout(() => {
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.memory-context-menu')) {
+          menu.remove();
+        }
+      }, { once: true });
+    }, 0);
+  }
+  
+  // Add new memory handler (with keyword auto-detection for core)
+  let addMemoryBtn = document.getElementById('add-memory');
+  if (addMemoryBtn) {
+    addMemoryBtn.onclick = async () => {
+      const textarea = document.getElementById('new-memory');
+      const memoryStatus = document.getElementById('memory-status');
+      const content = textarea.value.trim();
+      
+      if (!content) {
+        alert('Please enter memory content');
+        return;
+      }
+      
+      // Split by newlines for multiple memories
+      const memories = content
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+      
+      if (memories.length === 0) {
+        alert('Please enter memory content');
+        return;
+      }
+      
+      try {
+        let addedCount = 0;
+        let coreCount = 0;
+        
+        for (const memory of memories) {
+          const result = await api('/memory/add', 'POST', {
+            content: memory,
+            importance: 0.3  // 禁用关键词匹配，固定使用默认重要性
+            // importance: matchesCoreKeywords(memory) ? 0.85 : 0.3  // 已禁用关键词匹配
+          });
+          addedCount++;
+          
+          // Check if matches core keywords
+          if (matchesCoreKeywords(memory)) {
+            coreCount++;
+          }
+        }
+        
+        console.log('[DEBUG] Added', addedCount, 'memories,', coreCount, 'matched core keywords');
+        
+        // Clear textarea
+        textarea.value = '';
+        
+        // Reload memory display
+        await loadMemory();
+        
+        // Show status
+        if (coreCount > 0) {
+          memoryStatus.textContent = `✓ Added ${addedCount} memories (${coreCount} auto-matched to Core)`;
+        } else {
+          memoryStatus.textContent = `✓ Added ${addedCount} memories`;
+        }
+        
+      } catch (e) {
+        console.error('Failed to add memory:', e);
+        alert('Failed to add memory: ' + e.message);
+      }
+    };
+  }
+  
+  // Auto-select core memories using LLM (backend API)
+  let autoSelectBtn = document.getElementById('auto-select-core');
+  if (autoSelectBtn) {
+    autoSelectBtn.onclick = async () => {
+      const memoryStatus = document.getElementById('memory-status');
+      const coreList = document.getElementById('core-memory-list');
+      const libraryList = document.getElementById('memory-library-list');
+      
+      memoryStatus.textContent = '🤖 Analyzing memories with AI (strict mode)...';
+      autoSelectBtn.disabled = true;
+      
+      try {
+        // Call backend LLM evaluation API
+        const result = await api('/memory/evaluate', 'POST', {
+          memory_ids: []  // Empty = evaluate all memories
+        });
+        
+        console.log('[DEBUG] LLM evaluation result:', result);
+        
+        if (result.success) {
+          memoryStatus.textContent = result.message;
+          
+          // 直接更新 DOM，使用后端返回的数据
+          const coreMemories = result.core_memories || [];
+          const libraryMemories = result.library_memories || [];
+          
+          // 清空并重新填充核心记忆列表
+          coreList.innerHTML = '';
+          if (coreMemories.length === 0) {
+            coreList.innerHTML = '<div class="muted" style="text-align:center; padding:20px; font-size:12px;">No core memories</div>';
+          } else {
+            coreMemories.forEach(mem => {
+              const item = document.createElement('div');
+              item.className = 'core-item memory-item';
+              item.dataset.id = mem.id;
+              item.dataset.content = mem.content;
+              item.textContent = mem.content;
+              item.oncontextmenu = (e) => showCoreMemoryContextMenu(e, item);
+              coreList.appendChild(item);
+            });
+          }
+          
+          // 清空并重新填充库记忆列表
+          libraryList.innerHTML = '';
+          if (libraryMemories.length === 0) {
+            libraryList.innerHTML = '<div class="muted" style="text-align:center; padding:20px; font-size:12px;">No memories in library</div>';
+          } else {
+            libraryMemories.forEach(mem => {
+              const item = document.createElement('div');
+              item.className = 'library-item memory-item';
+              item.dataset.id = mem.id;
+              item.dataset.content = mem.content;
+              item.textContent = mem.content;
+              item.oncontextmenu = (e) => showLibraryMemoryContextMenu(e, item);
+              libraryList.appendChild(item);
+            });
+          }
+          
+        } else {
+          memoryStatus.textContent = '❌ ' + (result.message || 'Evaluation failed');
+        }
+        
+      } catch (e) {
+        console.error('Failed to auto-select:', e);
+        memoryStatus.textContent = 'Auto-select failed: ' + e.message;
+      } finally {
+        autoSelectBtn.disabled = false;
+      }
+    };
   }
 
   function escapeHtml(text) {
@@ -1092,89 +2062,107 @@
   }
 
   document.getElementById('refresh-memory').onclick = () => {
-    loadPlugins();
     loadMemory();
   };
 
-  // Add memory handler (supports newline-separated entries)
-  document.getElementById('add-memory').onclick = async () => {
-    const memoryStatus = document.getElementById('memory-status');
-    const rawContent = document.getElementById('new-memory').value.trim();
-    const tags = document.getElementById('memory-tags').value.trim();
-    const importance = parseFloat(document.getElementById('memory-importance').value) || 0.5;
+  // User Profile Save Handler
+  document.getElementById('save-profile').onclick = () => {
+    const name = document.getElementById('user_name').value.trim();
+    const age = document.getElementById('user_age').value.trim();
+    const gender = document.getElementById('user_gender').value;
+    const occupation = document.getElementById('user_occupation').value.trim();
+    const location = document.getElementById('user_location').value.trim();
+    const bio = document.getElementById('user_bio').value.trim();
     
-    if (!rawContent) {
-      memoryStatus.textContent = 'Please enter memory content';
-      return;
-    }
+    // 保存到 localStorage
+    const profileData = {
+      name,
+      age: age ? parseInt(age) : null,
+      gender,
+      occupation,
+      location,
+      bio,
+      savedAt: new Date().toISOString()
+    };
     
-    // Split content by newline
-    const contents = rawContent
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
+    localStorage.setItem('userProfile', JSON.stringify(profileData));
     
-    if (contents.length === 0) {
-      memoryStatus.textContent = 'Please enter memory content';
-      return;
-    }
+    // 显示保存成功提示
+    const btn = document.getElementById('save-profile');
+    const originalText = btn.textContent;
+    btn.textContent = '✓ Saved!';
+    btn.style.background = 'rgba(100,200,100,.3)';
+    btn.style.borderColor = 'rgba(100,200,100,.4)';
     
-    try {
-      memoryStatus.textContent = `Adding ${contents.length} memories...`;
-      const topicTags = tags ? tags.split(',').map(t => t.trim()).filter(t => t) : [];
-      
-      let addedCount = 0;
-      for (const content of contents) {
-        await api("/memory/add", "POST", {
-          content,
-          importance,
-          topic_tags: topicTags,
-          emotion_tags: [],
-          entities: []
-        });
-        addedCount++;
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.style.background = 'rgba(80,120,255,.3)';
+      btn.style.borderColor = 'rgba(80,120,255,.4)';
+    }, 2000);
+  };
+  
+  // Load user profile on page init
+  function loadUserProfile() {
+    const profileData = localStorage.getItem('userProfile');
+    if (profileData) {
+      try {
+        const profile = JSON.parse(profileData);
+        document.getElementById('user_name').value = profile.name || '';
+        document.getElementById('user_age').value = profile.age || '';
+        document.getElementById('user_gender').value = profile.gender || '';
+        document.getElementById('user_occupation').value = profile.occupation || '';
+        document.getElementById('user_location').value = profile.location || '';
+        document.getElementById('user_bio').value = profile.bio || '';
+      } catch (e) {
+        console.error('Failed to load user profile:', e);
       }
+    }
+  }
+  
+  // Get user profile for chat API
+  function getUserProfile() {
+    const profileData = localStorage.getItem('userProfile');
+    if (profileData) {
+      try {
+        const profile = JSON.parse(profileData);
+        // 只返回有值的字段
+        const result = {};
+        if (profile.name) result.name = profile.name;
+        if (profile.age) result.age = profile.age;
+        if (profile.gender) result.gender = profile.gender;
+        if (profile.occupation) result.occupation = profile.occupation;
+        if (profile.location) result.location = profile.location;
+        if (profile.bio) result.bio = profile.bio;
+        return Object.keys(result).length > 0 ? result : null;
+      } catch (e) {
+        console.error('Failed to get user profile:', e);
+        return null;
+      }
+    }
+    return null;
+  }
+  
+  // Load user profile when page loads
+  loadUserProfile();
+
+  // Clear all memories handler (if needed)
+  let clearBtn = document.getElementById('clear-memory');
+  if (clearBtn) {
+    clearBtn.onclick = async () => {
+      if (!confirm('Clear all memories?')) return;
       
-      memoryStatus.textContent = `Added ${addedCount} memories`;
-      document.getElementById('new-memory').value = '';
-      document.getElementById('memory-tags').value = '';
-      loadMemory();
-    } catch (e) {
-      memoryStatus.textContent = 'Failed to add: ' + e.message;
-    }
-  };
+      try {
+        await api("/memory/clear", "POST");
+        loadMemory();
+      } catch (e) {
+        console.error('Failed to clear:', e);
+      }
+    };
+  }
 
-  // Add demo data handler
-  document.getElementById('add-demo').onclick = async () => {
-    const memoryStatus = document.getElementById('memory-status');
-    try {
-      memoryStatus.textContent = 'Adding demo data...';
-      const result = await api("/memory/demo", "POST");
-      memoryStatus.textContent = `Added ${result.added} demo memories`;
-      loadMemory();
-    } catch (e) {
-      memoryStatus.textContent = 'Failed to add: ' + e.message;
-    }
-  };
-
-  // Clear all memories handler
-  document.getElementById('clear-memory').onclick = async () => {
-    const memoryStatus = document.getElementById('memory-status');
-    if (!confirm('Clear all memories for current plugin?')) return;
-    
-    try {
-      memoryStatus.textContent = 'Clearing...';
-      await api("/memory/clear", "POST");
-      memoryStatus.textContent = 'Memories cleared';
-      loadMemory();
-    } catch (e) {
-      memoryStatus.textContent = 'Failed to clear: ' + e.message;
-    }
-  };
-
-  // Initialize on page load (load plugin list only, load memories when opened)
+  // Initialize on page load
   setTimeout(() => {
-    loadPlugins();
+    loadMemory();
   }, 500);
 </script>
 </body>

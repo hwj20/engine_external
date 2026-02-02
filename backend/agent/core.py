@@ -89,14 +89,37 @@ class AgentCore:
             self.conversation_history[session_id] = []
             print(f"[AgentCore] Cleared history for session: {session_id}", flush=True)
 
-    def chat(self, user_message: str, session_id: Optional[str] = None) -> Dict[str, Any]:
+    def chat(self, user_message: str, session_id: Optional[str] = None, memory_context: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         session_id = session_id or "default"
         print(f"\n[AgentCore.chat] Processing: {user_message[:50]}... (session: {session_id})", flush=True)
         logger.info(f"Processing chat message: {user_message[:50]}...")
         mode = self._mode(user_message)
         logger.info(f"Detected mode: {mode}")
-        memory_cards = self._retrieve_memory_cards(user_message, mode=mode)
-        logger.info(f"Retrieved {len(memory_cards)} memory cards")
+        
+        # 使用新的记忆上下文（如果提供）
+        memory_cards: List[str] = []
+        if memory_context:
+            print(f"[AgentCore.chat] memory_context keys: {list(memory_context.keys())}", flush=True)
+            if memory_context.get("user_info"):
+                print(f"[AgentCore.chat] Adding user_info: {memory_context['user_info'][:50]}...", flush=True)
+                memory_cards.append(memory_context["user_info"])
+            if memory_context.get("core_memories"):
+                print(f"[AgentCore.chat] Adding core_memories: {memory_context['core_memories'][:50]}...", flush=True)
+                memory_cards.append(memory_context["core_memories"])
+            if memory_context.get("relevant_memories"):
+                print(f"[AgentCore.chat] Adding relevant_memories: {memory_context['relevant_memories'][:50]}...", flush=True)
+                memory_cards.append(memory_context["relevant_memories"])
+            else:
+                print(f"[AgentCore.chat] No relevant_memories found in memory_context", flush=True)
+        else:
+            print(f"[AgentCore.chat] memory_context is None, using fallback", flush=True)
+            # 回退到旧的记忆检索方式
+            memory_cards = self._retrieve_memory_cards(user_message, mode=mode)
+        
+        print(f"[AgentCore.chat] Final memory_cards count: {len(memory_cards)}", flush=True)
+        for i, card in enumerate(memory_cards):
+            print(f"  Card {i+1}: {card[:60]}...", flush=True)
+        logger.info(f"Memory context prepared: {len(memory_cards)} sections")
 
         state = f"当前模式: {mode}. 目标: 给出有帮助且简洁的回答。"
         print(f"[AgentCore] Assembling context...", flush=True)
@@ -120,10 +143,15 @@ class AgentCore:
 
         print(f"[AgentCore] LLM settings found: base_url={st['base_url']}, model={st['model']}", flush=True)
         logger.info(f"LLM call with model: {st['model']}")
+        
+        # 获取max_input_tokens设置
+        max_input_tokens = st.get("max_input_tokens", 2000)
+        
         client = OpenAICompatibleClient(
             base_url=st["base_url"],
             api_key=st["api_key"],
-            model=st["model"]
+            model=st["model"],
+            max_input_tokens=max_input_tokens
         )
 
         # 构建system prompt：优先使用用户自定义的system_prompt，否则使用DEFAULT_PERSONA
@@ -149,12 +177,45 @@ class AgentCore:
         messages.extend(history)
         messages.append({"role": "user", "content": pack["user_input"]})
 
-        max_tokens = 220 if mode == "chat" else 400
-        print(f"[AgentCore] Calling LLM with max_tokens={max_tokens}, total messages={len(messages)}", flush=True)
+        # 从设置中获取max_output_tokens，如果未设置则使用默认值
+        max_output_tokens = st.get("max_output_tokens", 800)
+        if mode == "chat":
+            # 对于chat模式，使用较小的输出限制，但不小于默认值
+            max_output_tokens = min(max_output_tokens, 400)
+        
+        # 从设置中获取temperature
+        temperature = st.get("temperature", 0.7)
+        
+        # 计算system prompt的token数
+        system_prompt_tokens = approx_tokens(system)
+        
+        print(f"[AgentCore] Calling LLM with max_tokens={max_output_tokens}, temperature={temperature}, system_tokens={system_prompt_tokens}, total messages={len(messages)}", flush=True)
+        
+        # 打印发送给LLM的完整chat completion请求
+        print(f"\n{'='*80}", flush=True)
+        print(f"[AgentCore] Chat Completion Request:", flush=True)
+        print(f"{'='*80}", flush=True)
+        print(f"Model: {st['model']}", flush=True)
+        print(f"Max Tokens: {max_output_tokens}", flush=True)
+        print(f"Temperature: {temperature}", flush=True)
+        print(f"Messages Count: {len(messages)}", flush=True)
+        print(f"{'-'*80}", flush=True)
+        for i, msg in enumerate(messages):
+            role = msg.get("role", "unknown")
+            content = msg.get("content", "")
+            content_preview = content[:200] + "..." if len(content) > 200 else content
+            print(f"Message {i+1} ({role}): {content_preview}", flush=True)
+        print(f"{'-'*80}", flush=True)
+        print(f"Full messages to be sent:", flush=True)
+        import json
+        print(json.dumps(messages, ensure_ascii=False, indent=2), flush=True)
+        print(f"{'='*80}\n", flush=True)
 
+        token_info = {}
         try:
-            ans = client.chat(messages, max_tokens=max_tokens, temperature=0.7 if mode=="chat" else 0.5)
-            print(f"[AgentCore] LLM response received: {len(ans)} chars", flush=True)
+            ans, token_info = client.chat(messages, max_tokens=max_output_tokens, temperature=temperature)
+            token_info["system_prompt_tokens"] = system_prompt_tokens
+            print(f"[AgentCore] LLM response received: {len(ans)} chars, tokens: {token_info}", flush=True)
             logger.info(f"LLM response received: {len(ans)} chars")
             
             # 保存对话历史
@@ -174,6 +235,7 @@ class AgentCore:
             "assistant_message": ans,
             "mode": mode,
             "used_memory_cards": pack["memory_cards"],
+            "token_info": token_info,
         }
 
     def _light_memory_write(self, user_message: str) -> None:

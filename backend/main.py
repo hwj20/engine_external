@@ -17,12 +17,20 @@ from memory_plugin_api import (
     SearchMemoryRequest, 
     DeleteMemoryRequest,
     SwitchPluginRequest,
-    PluginConfigRequest
+    PluginConfigRequest,
+    EvaluateMemoriesRequest,
+    UpdateMemoryImportanceRequest
 )
 from conversations_api import (
     get_conversations_list,
     get_conversation_detail,
-    search_conversations
+    search_conversations,
+    get_engine_conversations_list,
+    get_engine_conversation_detail,
+    save_engine_conversation,
+    update_conversation_title,
+    reload_engine_conversations,
+    init_engine_conversations
 )
 
 # Configure logging
@@ -170,17 +178,24 @@ memory_service = MemoryPluginService.get_instance(
 class ChatReq(BaseModel):
     user_message: str
     session_id: str | None = None
+    user_profile: Optional[Dict[str, Any]] = None  # 用户基本信息
 
 class ChatResp(BaseModel):
     assistant_message: str
     mode: str
     used_memory_cards: list[str]
+    token_info: Optional[Dict[str, Any]] = None
 
 class SettingsReq(BaseModel):
     provider: str = "openai_compatible"
-    base_url: str
-    api_key: str
-    model: str
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+    system_prompt: Optional[str] = ""
+    max_input_tokens: Optional[int] = 2000
+    max_output_tokens: Optional[int] = 800
+    temperature: Optional[float] = 0.7
+    dev_mode: Optional[bool] = False
 
 class ModelUpdateReq(BaseModel):
     model: str
@@ -203,7 +218,35 @@ def get_settings():
 def set_settings(req: SettingsReq):
     print(f"[SETTINGS] Updating: provider={req.provider}, base_url={req.base_url}, model={req.model}", flush=True)
     logger.info(f"Settings updated - provider: {req.provider}, model: {req.model}")
-    settings.set(req.model_dump())
+    
+    # Get current settings
+    current = settings.get()
+    
+    # Only update fields that were provided
+    if req.base_url is not None:
+        current["base_url"] = req.base_url
+    if req.api_key is not None:
+        current["api_key"] = req.api_key
+    if req.model is not None:
+        current["model"] = req.model
+    if req.system_prompt is not None:
+        current["system_prompt"] = req.system_prompt
+    if req.max_input_tokens is not None:
+        current["max_input_tokens"] = req.max_input_tokens
+    if req.max_output_tokens is not None:
+        current["max_output_tokens"] = req.max_output_tokens
+    if req.temperature is not None:
+        current["temperature"] = req.temperature
+    if req.dev_mode is not None:
+        current["dev_mode"] = req.dev_mode
+    
+    # 验证token限制
+    if current["max_input_tokens"] and (current["max_input_tokens"] < 100 or current["max_input_tokens"] > 128000):
+        return {"error": "max_input_tokens must be between 100 and 128000", "status": "error"}
+    if current["max_output_tokens"] and (current["max_output_tokens"] < 100 or current["max_output_tokens"] > 32000):
+        return {"error": "max_output_tokens must be between 100 and 32000", "status": "error"}
+    
+    settings.set(current)
     print("[SETTINGS] Settings saved successfully", flush=True)
     return {"ok": True}
 
@@ -215,6 +258,132 @@ def update_model_only(req: ModelUpdateReq):
     current["model"] = req.model
     settings.set(current)
     print("[SETTINGS] Model updated successfully", flush=True)
+    return {"ok": True}
+
+
+@app.post("/models/fetch")
+def fetch_openai_models():
+    """Fetch available models from OpenAI API"""
+    print("[MODELS] Fetching models from OpenAI", flush=True)
+    
+    try:
+        st = settings.get()
+        base_url = st.get("base_url", "").strip()
+        api_key = st.get("api_key", "").strip()
+        
+        if not base_url or not api_key:
+            print("[MODELS] Missing base_url or api_key", flush=True)
+            return {"error": "base_url and api_key are required", "status": "error"}
+        
+        # Import requests to make HTTP calls
+        import requests
+        
+        # Remove trailing slash from base_url
+        base_url = base_url.rstrip('/')
+        
+        # Call the models endpoint
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Try different model endpoint paths
+        endpoint_paths = [
+            "/models",
+            "/v1/models",
+            "/api/models",
+            "/api/v1/models"
+        ]
+        
+        response = None
+        last_error = None
+        
+        for endpoint_path in endpoint_paths:
+            full_url = f"{base_url}{endpoint_path}"
+            print(f"[MODELS] Trying {full_url}", flush=True)
+            
+            try:
+                response = requests.get(
+                    full_url,
+                    headers=headers,
+                    timeout=10
+                )
+                
+                if response.status_code == 200:
+                    print(f"[MODELS] Success with {endpoint_path}", flush=True)
+                    break
+                elif response.status_code == 401:
+                    print(f"[MODELS] Unauthorized (401) with {endpoint_path}", flush=True)
+                    last_error = "Invalid API key"
+                    break
+                else:
+                    print(f"[MODELS] {endpoint_path} returned {response.status_code}", flush=True)
+                    last_error = f"Status {response.status_code}"
+                    
+            except Exception as e:
+                print(f"[MODELS] Error trying {endpoint_path}: {e}", flush=True)
+                last_error = str(e)
+                continue
+        
+        if response is None:
+            return {
+                "error": f"Could not reach models endpoint. Last error: {last_error}",
+                "status": "error",
+                "hint": f"Tried endpoints: {', '.join(endpoint_paths)}"
+            }
+        
+        if response.status_code == 401:
+            print("[MODELS] API key invalid", flush=True)
+            return {
+                "error": "Invalid API key (401 Unauthorized)",
+                "status": "error"
+            }
+        
+        if response.status_code != 200:
+            print(f"[MODELS] API returned status {response.status_code}: {response.text[:200]}", flush=True)
+            return {
+                "error": f"OpenAI API returned {response.status_code}",
+                "status": "error",
+                "details": response.text[:500] if response.text else "No details available"
+            }
+        
+        data = response.json()
+        models = data.get('data', [])
+        
+        if not models:
+            print("[MODELS] No models returned from API", flush=True)
+            return {
+                "error": "No models found in API response",
+                "status": "error",
+                "response": data
+            }
+        
+        print(f"[MODELS] Successfully fetched {len(models)} models", flush=True)
+        
+        return {
+            "success": True,
+            "models": models,
+            "count": len(models)
+        }
+        
+    except requests.exceptions.Timeout:
+        print("[MODELS] Request timeout", flush=True)
+        return {
+            "error": "Request timeout - check if base_url is correct and network is available",
+            "status": "error"
+        }
+    except requests.exceptions.ConnectionError as e:
+        print("[MODELS] Connection error", flush=True)
+        return {
+            "error": f"Cannot connect to base_url: {str(e)[:100]}",
+            "status": "error"
+        }
+    except Exception as e:
+        print(f"[MODELS] Error fetching models: {e}", flush=True)
+        return {
+            "error": f"Error: {str(e)[:200]}",
+            "status": "error"
+        }
     return {"ok": True, "model": req.model}
 
 @app.get("/settings/system-prompt")
@@ -329,11 +498,65 @@ def save_custom_personality(data: dict):
         logger.error(f"Error saving custom personality: {e}")
         return {"error": str(e), "status": "error"}
 
+@app.get("/settings/token-limits")
+def get_token_limits():
+    """获取token限制设置"""
+    print("[SETTINGS] Getting token limits", flush=True)
+    current = settings.get()
+    return {
+        "max_input_tokens": current.get("max_input_tokens", 2000),
+        "max_output_tokens": current.get("max_output_tokens", 800)
+    }
+
+@app.post("/settings/token-limits")
+def set_token_limits(data: dict):
+    """保存token限制设置"""
+    print("[SETTINGS] Updating token limits", flush=True)
+    try:
+        max_input = int(data.get("max_input_tokens", 2000))
+        max_output = int(data.get("max_output_tokens", 800))
+        
+        # 基本验证
+        if max_input < 100 or max_input > 128000:
+            return {"error": "max_input_tokens must be between 100 and 128000", "status": "error"}
+        if max_output < 100 or max_output > 32000:
+            return {"error": "max_output_tokens must be between 100 and 32000", "status": "error"}
+        
+        current = settings.get()
+        current["max_input_tokens"] = max_input
+        current["max_output_tokens"] = max_output
+        settings.set(current)
+        
+        print(f"[SETTINGS] Token limits saved: input={max_input}, output={max_output}", flush=True)
+        logger.info(f"Token limits updated: input={max_input}, output={max_output}")
+        return {
+            "max_input_tokens": max_input,
+            "max_output_tokens": max_output,
+            "status": "success"
+        }
+    except ValueError as e:
+        return {"error": f"Invalid token limits: {e}", "status": "error"}
+
 @app.post("/chat", response_model=ChatResp)
 def chat(req: ChatReq):
     print(f"\n>>> [CHAT] Request: {req.user_message[:50]}...", flush=True)
+    print(f">>> [CHAT] user_profile: {req.user_profile}", flush=True)
+    print(f">>> [CHAT] memory_service: {memory_service}", flush=True)
     logger.info(f"Chat request: {req.user_message[:50]}... (session: {req.session_id})")
-    out = agent.chat(req.user_message, session_id=req.session_id)
+    
+    # 获取记忆上下文
+    print(f">>> [CHAT] Calling get_conversation_context with query='{req.user_message}'", flush=True)
+    memory_context = memory_service.get_conversation_context(
+        query=req.user_message,
+        user_profile=req.user_profile
+    )
+    print(f">>> [CHAT] Got memory_context: {memory_context}", flush=True)
+    
+    out = agent.chat(
+        req.user_message, 
+        session_id=req.session_id,
+        memory_context=memory_context
+    )
     print(f"<<< [CHAT] Response ({out['mode']}): {out['assistant_message'][:100]}...\n", flush=True)
     logger.info(f"Chat response mode: {out['mode']}, memory_cards: {len(out['used_memory_cards'])}")
     return ChatResp(**out)
@@ -489,7 +712,55 @@ def get_relationships():
     return {"relationships": memory_service.get_relationships()}
 
 
-# ==================== Conversations API ====================
+# --- LLM Memory Evaluation ---
+
+@app.post("/memory/evaluate")
+def evaluate_memories(req: EvaluateMemoriesRequest = EvaluateMemoriesRequest()):
+    """
+    使用 LLM 评估记忆的重要性
+    严格标准：只有真正的核心身份信息才会被标记为核心记忆
+    """
+    print(f"[MEMORY] Evaluating memories with LLM, memory_ids={req.memory_ids}", flush=True)
+    
+    # 获取 LLM 配置
+    settings_data = settings.get()
+    base_url = settings_data.get("base_url", "")
+    api_key = settings_data.get("api_key", "")
+    model = settings_data.get("model", "")
+    
+    if not base_url or not api_key or not model:
+        return {
+            "success": False,
+            "error": "LLM not configured",
+            "message": "请先在设置中配置 LLM 的 base_url、api_key 和 model"
+        }
+    
+    # 创建 LLM 客户端
+    from agent.llm import OpenAICompatibleClient
+    llm_client = OpenAICompatibleClient(
+        base_url=base_url,
+        api_key=api_key,
+        model=model
+    )
+    
+    result = memory_service.evaluate_memories_with_llm(
+        llm_client=llm_client,
+        memory_ids=req.memory_ids if req.memory_ids else None
+    )
+    return result
+
+
+@app.post("/memory/update-importance")
+def update_memory_importance(req: UpdateMemoryImportanceRequest):
+    """
+    更新单条记忆的重要性
+    """
+    print(f"[MEMORY] Updating importance for {req.memory_id} to {req.importance}", flush=True)
+    result = memory_service.update_memory_importance(req.memory_id, req.importance)
+    return result
+
+
+# ==================== Conversations API (Original - Read Only) ====================
 
 @app.get("/conversations")
 def list_conversations(query: Optional[str] = None, limit: Optional[int] = None):
@@ -524,6 +795,168 @@ def get_conversation(conversation_id: str):
         return {"error": "Conversation not found", "conversation_id": conversation_id}
     
     return detail.model_dump()
+
+
+# ==================== Engine Conversations API (Read-Write) ====================
+
+@app.get("/engine-conversations")
+def list_engine_conversations(query: Optional[str] = None):
+    """
+    Get list of engine conversations (from external_engine_conversation.json)
+    """
+    print(f"[ENGINE_CONV] Listing engine conversations (query={query})", flush=True)
+    
+    all_convs = get_engine_conversations_list()
+    
+    if query:
+        query_lower = query.lower()
+        all_convs = [c for c in all_convs if query_lower in c.title.lower()]
+    
+    return {"conversations": [r.model_dump() for r in all_convs]}
+
+
+@app.get("/engine-conversations/{conversation_id}")
+def get_engine_conversation(conversation_id: str):
+    """
+    Get engine conversation detail by ID
+    """
+    print(f"[ENGINE_CONV] Loading conversation: {conversation_id}", flush=True)
+    
+    detail = get_engine_conversation_detail(conversation_id)
+    
+    if not detail:
+        return {"error": "Conversation not found", "conversation_id": conversation_id}
+    
+    return detail.model_dump()
+
+
+@app.post("/engine-conversations/reload")
+def reload_conversations():
+    """
+    Reload engine conversations by copying from conversations.json
+    """
+    print(f"[ENGINE_CONV] Reloading conversations from conversations.json", flush=True)
+    
+    success = reload_engine_conversations()
+    
+    if success:
+        return {"ok": True, "message": "Conversations reloaded successfully"}
+    else:
+        return {"ok": False, "error": "Failed to reload conversations"}
+
+
+@app.post("/engine-conversations/{conversation_id}/title")
+def update_conv_title(conversation_id: str, data: dict):
+    """
+    Update conversation title
+    """
+    new_title = data.get("title", "")
+    print(f"[ENGINE_CONV] Updating title: {conversation_id} -> {new_title}", flush=True)
+    
+    success = update_conversation_title(conversation_id, new_title)
+    
+    if success:
+        return {"ok": True, "title": new_title}
+    else:
+        return {"ok": False, "error": "Failed to update title"}
+
+
+@app.post("/engine-conversations/save")
+def save_conversation(data: dict):
+    """
+    Save current conversation to engine conversations file
+    """
+    conversation_id = data.get("conversation_id", f"engine_{int(time.time())}")
+    title = data.get("title", "Untitled Conversation")
+    messages = data.get("messages", [])
+    
+    print(f"[ENGINE_CONV] Saving conversation: {conversation_id}", flush=True)
+    
+    success = save_engine_conversation(conversation_id, title, messages)
+    
+    if success:
+        return {"ok": True, "conversation_id": conversation_id, "title": title}
+    else:
+        return {"ok": False, "error": "Failed to save conversation"}
+
+
+@app.post("/engine-conversations/delete/{conversation_id}")
+def delete_conversation(conversation_id: str):
+    """
+    Delete a conversation from engine conversations
+    """
+    print(f"[ENGINE_CONV] Deleting conversation: {conversation_id}", flush=True)
+    
+    try:
+        # Load all conversations
+        import json
+        engine_conversations_file = os.path.join(DATA_DIR, "external_engine_conversation.json")
+        
+        if not os.path.exists(engine_conversations_file):
+            return {"error": "Conversations file not found"}
+        
+        with open(engine_conversations_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Remove the conversation
+        if conversation_id in data.get('conversations', {}):
+            del data['conversations'][conversation_id]
+            
+            # Save back
+            with open(engine_conversations_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            print(f"[ENGINE_CONV] Deleted conversation: {conversation_id}", flush=True)
+            return {"ok": True, "message": f"Conversation {conversation_id} deleted"}
+        else:
+            return {"error": f"Conversation {conversation_id} not found"}
+    
+    except Exception as e:
+        print(f"[ENGINE_CONV] Error deleting conversation: {e}", flush=True)
+        return {"error": f"Failed to delete: {str(e)}"}
+
+
+@app.post("/load-conversation-to-context")
+def load_conversation_to_context(data: dict):
+    """
+    Load a conversation into the agent's context (conversation history)
+    """
+    conversation_id = data.get("conversation_id")
+    session_id = data.get("session_id", "default")
+    
+    print(f"[ENGINE_CONV] Loading conversation to context: {conversation_id} -> session {session_id}", flush=True)
+    
+    # First try engine conversations, then original
+    detail = get_engine_conversation_detail(conversation_id)
+    if not detail:
+        detail = get_conversation_detail(conversation_id)
+    
+    if not detail:
+        print(f"[ENGINE_CONV] Conversation not found: {conversation_id}", flush=True)
+        return {"ok": False, "error": "Conversation not found"}
+    
+    # Clear existing history
+    agent.clear_history(session_id)
+    print(f"[ENGINE_CONV] Cleared history for session: {session_id}", flush=True)
+    
+    # Add messages to agent's conversation history
+    added_count = 0
+    for msg in detail.messages:
+        if msg.role in ['user', 'assistant']:
+            print(f"[ENGINE_CONV] Adding message - role: {msg.role}, content length: {len(msg.content)}", flush=True)
+            agent._add_to_history(session_id, msg.role, msg.content)
+            added_count += 1
+    
+    print(f"[ENGINE_CONV] Loaded {added_count} messages to session {session_id}", flush=True)
+    print(f"[ENGINE_CONV] Session conversation_history now has {len(agent.conversation_history[session_id])} messages", flush=True)
+    
+    return {
+        "ok": True,
+        "conversation_id": conversation_id,
+        "title": detail.title,
+        "message_count": len(detail.messages),
+        "session_id": session_id
+    }
 
 
 if __name__ == "__main__":
