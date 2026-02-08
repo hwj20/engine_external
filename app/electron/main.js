@@ -240,6 +240,37 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  // Log key paths for debugging
+  log.info('=== Startup Diagnostics ===');
+  log.info('app.isPackaged:', app.isPackaged);
+  log.info('app.getAppPath():', app.getAppPath());
+  log.info('process.resourcesPath:', process.resourcesPath);
+  log.info('__dirname:', __dirname);
+  
+  // List resources directory contents
+  const fs = require('fs');
+  try {
+    const resPath = process.resourcesPath;
+    log.info('Contents of resourcesPath:', fs.readdirSync(resPath));
+    const binPath = path.join(resPath, 'bin');
+    if (fs.existsSync(binPath)) {
+      log.info('Contents of resources/bin/:', fs.readdirSync(binPath));
+      const backendDir = path.join(binPath, 'backend');
+      if (fs.existsSync(backendDir)) {
+        log.info('Contents of resources/bin/backend/:', fs.readdirSync(backendDir).slice(0, 15));
+      } else {
+        log.error('resources/bin/backend/ does NOT exist!');
+        // Maybe backend.exe is directly in resources/bin/ (onefile mode)?
+        log.info('Looking for backend.exe directly in bin/...');
+      }
+    } else {
+      log.error('resources/bin/ does NOT exist!');
+    }
+  } catch (e) {
+    log.error('Diagnostics error:', e.message);
+  }
+  log.info('=== End Diagnostics ===');
+
   // Start the backend process first
   startBackend();
   
