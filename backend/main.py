@@ -5,6 +5,7 @@ import re
 import json
 import time
 import shutil
+import requests
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -306,9 +307,6 @@ def fetch_openai_models():
         if not base_url or not api_key:
             print("[MODELS] Missing base_url or api_key", flush=True)
             return {"error": "base_url and api_key are required", "status": "error"}
-        
-        # Import requests to make HTTP calls
-        import requests
         
         # Remove trailing slash from base_url
         base_url = base_url.rstrip('/')
