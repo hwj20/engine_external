@@ -62,24 +62,19 @@ if (-not $SkipBackend) {
     $resourcesDir = Join-Path $AppDir "resources\bin"
     New-Item -ItemType Directory -Path $resourcesDir -Force | Out-Null
     
-    # Build
+    # Build (--onedir mode for fast startup)
     Push-Location $BackendDir
     try {
-        pyinstaller --onefile --name backend --distpath "$resourcesDir" main.py
+        pyinstaller --name backend --distpath "$resourcesDir" main.py --add-data "system_prompts;system_prompts" --add-data "memory_plugins;memory_plugins"
         Write-Host "Backend built successfully" -ForegroundColor Green
     } finally {
         Pop-Location
     }
     
-    # Copy data files
+    # Copy data files (system_prompts already bundled via --add-data)
     Write-Host "Copying backend data files..." -ForegroundColor Gray
     $dataDir = Join-Path $AppDir "resources\data"
     New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
-    
-    $systemPromptsDir = Join-Path $BackendDir "system_prompts"
-    if (Test-Path $systemPromptsDir) {
-        Copy-Item -Recurse -Force $systemPromptsDir (Join-Path $dataDir "system_prompts")
-    }
     
     $backendDataDir = Join-Path $BackendDir "data"
     if (Test-Path $backendDataDir) {

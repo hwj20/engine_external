@@ -26,14 +26,32 @@ let backendProcess = null;
  */
 function getBackendPath() {
   const isPackaged = app.isPackaged;
+  const fs = require('fs');
   
   if (isPackaged) {
-    // Production: binary is in resources/bin/
+    // Production: PyInstaller --onedir outputs to resources/bin/backend/backend[.exe]
     const binName = process.platform === 'win32' ? 'backend.exe' : 'backend';
-    const binPath = path.join(process.resourcesPath, 'bin', binName);
+    const binDir = path.join(process.resourcesPath, 'bin', 'backend');
+    const binPath = path.join(binDir, binName);
+    
     log.info('Backend binary path (packaged):', binPath);
-    // cwd is the bin directory itself; the backend reads DATA_DIR from AppData
-    return { executable: binPath, args: [], cwd: path.join(process.resourcesPath, 'bin') };
+    log.info('Backend directory exists:', fs.existsSync(binDir));
+    log.info('Backend executable exists:', fs.existsSync(binPath));
+    
+    // List contents of bin directory for debugging
+    try {
+      const binParent = path.join(process.resourcesPath, 'bin');
+      if (fs.existsSync(binParent)) {
+        log.info('Contents of resources/bin/:', fs.readdirSync(binParent));
+      }
+      if (fs.existsSync(binDir)) {
+        log.info('Contents of resources/bin/backend/:', fs.readdirSync(binDir).slice(0, 20), '...');
+      }
+    } catch (e) {
+      log.warn('Could not list bin directory:', e.message);
+    }
+    
+    return { executable: binPath, args: [], cwd: binDir };
   } else {
     // Development: run Python source directly
     const backendDir = path.join(__dirname, '..', '..', 'backend');
@@ -225,11 +243,15 @@ app.whenReady().then(async () => {
   // Start the backend process first
   startBackend();
   
-  // Wait for backend to be ready before showing UI
-  log.info('Waiting for backend health check...');
-  await waitForBackend();
-  
+  // Create window immediately but show loading state
   const mainWindow = createWindow();
+  
+  // Wait for backend to be ready (up to 60 seconds)
+  log.info('Waiting for backend health check...');
+  await waitForBackend(60000, 800);
+  
+  // Reload the page once backend is ready so the frontend can connect
+  mainWindow.webContents.reload();
   
   // Initialize auto-updater with electron-updater
   log.info('Initializing auto-updater...');

@@ -42,33 +42,31 @@ jobs:
         if: matrix.os == 'windows-latest'
         working-directory: ./backend
         run: |
-          pyinstaller --onefile --name backend --distpath ../app/resources/bin main.py
+          pyinstaller --name backend --distpath ../app/resources/bin main.py --add-data "system_prompts;system_prompts" --add-data "memory_plugins;memory_plugins"
 
       - name: Build Python backend (macOS)
         if: matrix.os == 'macos-latest'
         working-directory: ./backend
         run: |
-          pyinstaller --onefile --name backend --distpath ../app/resources/bin main.py
+          pyinstaller --name backend --distpath ../app/resources/bin main.py --add-data "system_prompts:system_prompts" --add-data "memory_plugins:memory_plugins"
 
       - name: Build Python backend (Linux)
         if: matrix.os == 'ubuntu-latest'
         working-directory: ./backend
         run: |
-          pyinstaller --onefile --name backend --distpath ../app/resources/bin main.py
+          pyinstaller --name backend --distpath ../app/resources/bin main.py --add-data "system_prompts:system_prompts" --add-data "memory_plugins:memory_plugins"
 
       - name: Copy backend data files (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path app/resources/data | Out-Null
-          if (Test-Path backend/system_prompts) { Copy-Item -Recurse -Force backend/system_prompts app/resources/data/system_prompts }
           if (Test-Path backend/data) { Copy-Item -Recurse -Force backend/data app/resources/data/default_data }
 
       - name: Copy backend data files (macOS/Linux)
         if: matrix.os != 'windows-latest'
         run: |
           mkdir -p app/resources/data
-          cp -r backend/system_prompts app/resources/data/ || true
           cp -r backend/data app/resources/data/default_data || true
 
       - name: Install Node dependencies
