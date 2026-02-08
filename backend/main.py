@@ -74,9 +74,18 @@ if getattr(sys, 'frozen', False):
     # Running as packaged executable - look for system_prompts in the bundled directory
     # PyInstaller extracts files to sys._MEIPASS
     SYSTEM_PROMPTS_DIR = os.path.join(sys._MEIPASS, "system_prompts")
+    print(f"[INIT] Running as packaged app, using SYSTEM_PROMPTS_DIR: {SYSTEM_PROMPTS_DIR}", flush=True)
 else:
     # Running in development
     SYSTEM_PROMPTS_DIR = os.path.join(os.path.dirname(__file__), "system_prompts")
+    print(f"[INIT] Running in development, using SYSTEM_PROMPTS_DIR: {SYSTEM_PROMPTS_DIR}", flush=True)
+
+# Verify directory exists
+if not os.path.exists(SYSTEM_PROMPTS_DIR):
+    print(f"[ERROR] System prompts directory not found: {SYSTEM_PROMPTS_DIR}", flush=True)
+    logger.error(f"System prompts directory not found: {SYSTEM_PROMPTS_DIR}")
+else:
+    print(f"[INIT] System prompts directory exists with {len(os.listdir(SYSTEM_PROMPTS_DIR))} files", flush=True)
 
 # 用户自定义人格存储目录
 CUSTOM_PERSONALITIES_DIR = os.path.join(DATA_DIR, "custom_personalities")

@@ -1,29 +1,97 @@
-﻿{
-    "name":  "engine-external",
-    "version":  "0.1.2",
-    "private":  true,
-    "main":  "electron/main.js",
-    "scripts":  {
-                    "dev":  "node electron/dev.js",
-                    "start":  "electron .",
-                    "dist":  "electron-builder"
+{
+    "name": "engine-external",
+    "version": "0.1.3",
+    "private": true,
+    "main": "electron/main.js",
+    "description": "AURORA Local Agent - A local AI assistant with memory capabilities",
+    "scripts": {
+        "dev": "node electron/dev.js",
+        "start": "electron .",
+        "dist": "electron-builder",
+        "build": "electron-builder",
+        "build:win": "electron-builder --win",
+        "build:mac": "electron-builder --mac",
+        "build:linux": "electron-builder --linux"
+    },
+    "dependencies": {
+        "electron-updater": "^6.7.3",
+        "electron-log": "^5.1.0"
+    },
+    "devDependencies": {
+        "electron": "^30.0.0",
+        "electron-builder": "^24.13.3"
+    },
+    "build": {
+        "appId": "com.aurora.localagent",
+        "productName": "Engine External",
+        "publish": [
+            {
+                "provider": "github",
+                "owner": "hwj20",
+                "repo": "engine_external"
+            }
+        ],
+        "directories": {
+            "output": "dist"
+        },
+        "files": [
+            "electron/**/*",
+            "renderer/**/*"
+        ],
+        "extraResources": [
+            {
+                "from": "resources/bin/",
+                "to": "bin",
+                "filter": [
+                    "**/*"
+                ]
+            },
+            {
+                "from": "resources/data/",
+                "to": "data",
+                "filter": [
+                    "**/*"
+                ]
+            }
+        ],
+        "win": {
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": [
+                        "x64"
+                    ]
                 },
-    "dependencies":  {
-                         "electron-updater":  "^6.7.3"
-                     },
-    "devDependencies":  {
-                            "electron":  "^30.0.0",
-                            "electron-builder":  "^24.13.3"
-                        },
-    "build":  {
-                  "appId":  "com.aurora.localagent",
-                  "productName":  "Engine External",
-                  "directories":  {
-                                      "output":  "dist"
-                                  },
-                  "files":  [
-                                "electron/**/*",
-                                "renderer/**/*"
-                            ]
-              }
+                {
+                    "target": "portable",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ],
+            "icon": "build/icon.ico"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "Engine External"
+        },
+        "mac": {
+            "target": [
+                "dmg",
+                "zip"
+            ],
+            "category": "public.app-category.utilities",
+            "icon": "build/icon.icns"
+        },
+        "linux": {
+            "target": [
+                "AppImage",
+                "deb"
+            ],
+            "icon": "build/icon.png"
+        }
+    }
 }
