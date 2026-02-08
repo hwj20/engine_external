@@ -4,6 +4,11 @@
     "private": true,
     "main": "electron/main.js",
     "description": "AURORA Local Agent - A local AI assistant with memory capabilities",
+    "homepage": "https://github.com/hwj20/engine_external",
+    "author": {
+        "name": "Wanjing Huang",
+        "email": "wanjinghuang0310@gmail.com"
+    },
     "scripts": {
         "dev": "node electron/dev.js",
         "start": "electron .",
@@ -91,7 +96,9 @@
                 "AppImage",
                 "deb"
             ],
-            "icon": "build/icon.png"
+            "icon": "build/icon.png",
+            "maintainer": "AURORA <info@aurora.local>",
+            "category": "Utility"
         }
     }
 }
