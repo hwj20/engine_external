@@ -1101,4 +1101,4 @@ if __name__ == "__main__":
     sys.stdout.flush()
     sys.stderr.flush()
     logger.info(f"Starting AURORA backend on {APP_HOST}:{APP_PORT}")
-    uvicorn.run("main:app", host=APP_HOST, port=APP_PORT, reload=False, log_level="info")
+    uvicorn.run(app, host=APP_HOST, port=APP_PORT, reload=False, log_level="info")
