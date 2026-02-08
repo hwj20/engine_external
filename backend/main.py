@@ -4,8 +4,9 @@ import logging
 import re
 import json
 import time
+import shutil
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -30,7 +31,8 @@ from conversations_api import (
     save_engine_conversation,
     update_conversation_title,
     reload_engine_conversations,
-    init_engine_conversations
+    init_engine_conversations,
+    PERSONAL_INFO_DIR
 )
 
 # Configure logging
@@ -69,14 +71,27 @@ memory = MemoryStore(os.path.join(DATA_DIR, "memory.sqlite3"))
 agent = AgentCore(memory=memory, settings=settings)
 
 # System Prompts templates 目录
-# For packaged app, we need to use the bundled resources path
+# For packaged app, auto-copy system_prompts from bundle to AppData on first run
 if getattr(sys, 'frozen', False):
-    # Running as packaged executable - look for system_prompts in the bundled directory
-    # PyInstaller extracts files to sys._MEIPASS
-    SYSTEM_PROMPTS_DIR = os.path.join(sys._MEIPASS, "system_prompts")
+    # Running as packaged executable - bundled system_prompts location
+    BUNDLED_SYSTEM_PROMPTS = os.path.join(sys._MEIPASS, "system_prompts")
+    # User-accessible system_prompts location (in AppData)
+    SYSTEM_PROMPTS_DIR = os.path.join(DATA_DIR, "system_prompts")
+    
+    # Auto-copy from bundle if AppData doesn't have it yet
+    if not os.path.exists(SYSTEM_PROMPTS_DIR):
+        try:
+            if os.path.exists(BUNDLED_SYSTEM_PROMPTS):
+                shutil.copytree(BUNDLED_SYSTEM_PROMPTS, SYSTEM_PROMPTS_DIR)
+                print(f"[INIT] Copied bundled system prompts to AppData: {SYSTEM_PROMPTS_DIR}", flush=True)
+            else:
+                print(f"[WARN] Bundled system prompts not found: {BUNDLED_SYSTEM_PROMPTS}", flush=True)
+        except Exception as e:
+            print(f"[ERROR] Failed to copy system prompts to AppData: {e}", flush=True)
+    
     print(f"[INIT] Running as packaged app, using SYSTEM_PROMPTS_DIR: {SYSTEM_PROMPTS_DIR}", flush=True)
 else:
-    # Running in development
+    # Running in development - use bundled location directly
     SYSTEM_PROMPTS_DIR = os.path.join(os.path.dirname(__file__), "system_prompts")
     print(f"[INIT] Running in development, using SYSTEM_PROMPTS_DIR: {SYSTEM_PROMPTS_DIR}", flush=True)
 
@@ -515,6 +530,49 @@ def save_custom_personality(data: dict):
         logger.error(f"Error saving custom personality: {e}")
         return {"error": str(e), "status": "error"}
 
+@app.delete("/settings/system-prompt/templates/{template_id}")
+def delete_system_prompt_template(template_id: str):
+    """删除自定义的系统提示模板"""
+    global CUSTOM_PERSONALITIES
+    
+    print(f"[SYSTEM_PROMPTS] Deleting template: {template_id}", flush=True)
+    
+    try:
+        # 只允许删除自定义的personality，不允许删除内置模板
+        if not template_id.startswith("custom_"):
+            return {
+                "error": "Cannot delete built-in templates",
+                "status": "error"
+            }
+        
+        # 删除文件
+        file_path = os.path.join(CUSTOM_PERSONALITIES_DIR, f"{template_id}.json")
+        
+        if not os.path.exists(file_path):
+            return {
+                "error": "Template not found",
+                "status": "error"
+            }
+        
+        os.remove(file_path)
+        print(f"[SYSTEM_PROMPTS] Deleted: {template_id}", flush=True)
+        logger.info(f"System prompt template deleted: {template_id}")
+        
+        # 重新加载自定义personalities
+        CUSTOM_PERSONALITIES = load_custom_personalities()
+        
+        return {
+            "status": "success",
+            "message": "Template deleted successfully"
+        }
+    except Exception as e:
+        print(f"[SYSTEM_PROMPTS] Error deleting: {e}", flush=True)
+        logger.error(f"Error deleting system prompt template: {e}")
+        return {
+            "error": str(e),
+            "status": "error"
+        }
+
 @app.get("/settings/token-limits")
 def get_token_limits():
     """获取token限制设置"""
@@ -905,7 +963,6 @@ def delete_conversation(conversation_id: str):
     print(f"[ENGINE_CONV] Deleting conversation: {conversation_id}", flush=True)
     
     try:
-        # Load all conversations
         import json
         engine_conversations_file = os.path.join(DATA_DIR, "external_engine_conversation.json")
         
@@ -915,22 +972,81 @@ def delete_conversation(conversation_id: str):
         with open(engine_conversations_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
-        # Remove the conversation
-        if conversation_id in data.get('conversations', {}):
-            del data['conversations'][conversation_id]
-            
-            # Save back
-            with open(engine_conversations_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            
-            print(f"[ENGINE_CONV] Deleted conversation: {conversation_id}", flush=True)
-            return {"ok": True, "message": f"Conversation {conversation_id} deleted"}
-        else:
+        # data is a list of conversation objects
+        original_len = len(data)
+        data = [c for c in data if c.get('conversation_id', c.get('id', '')) != conversation_id]
+        
+        if len(data) == original_len:
             return {"error": f"Conversation {conversation_id} not found"}
+        
+        with open(engine_conversations_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        print(f"[ENGINE_CONV] Deleted conversation: {conversation_id}", flush=True)
+        return {"ok": True, "message": f"Conversation {conversation_id} deleted"}
     
     except Exception as e:
         print(f"[ENGINE_CONV] Error deleting conversation: {e}", flush=True)
         return {"error": f"Failed to delete: {str(e)}"}
+
+
+@app.post("/upload-conversation-zip")
+async def upload_conversation_zip(file: UploadFile = File(...)):
+    """
+    Upload a zip file and extract it to the personal_info/data directory
+    (where conversations.json and related files live).
+    """
+    import zipfile
+    import tempfile
+
+    print(f"[UPLOAD] Receiving zip upload: {file.filename}", flush=True)
+
+    if not file.filename or not file.filename.lower().endswith('.zip'):
+        return {"ok": False, "error": "Only .zip files are allowed"}
+
+    try:
+        # Save uploaded file to a temp location
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix='.zip')
+        try:
+            contents = await file.read()
+            with os.fdopen(tmp_fd, 'wb') as tmp_file:
+                tmp_file.write(contents)
+
+            # Validate it's actually a zip file
+            if not zipfile.is_zipfile(tmp_path):
+                return {"ok": False, "error": "Uploaded file is not a valid zip archive"}
+
+            # Extract to PERSONAL_INFO_DIR
+            extracted_count = 0
+            with zipfile.ZipFile(tmp_path, 'r') as zf:
+                # Security check: prevent path traversal
+                for member in zf.namelist():
+                    member_path = os.path.normpath(member)
+                    if member_path.startswith('..') or os.path.isabs(member_path):
+                        return {"ok": False, "error": f"Zip contains unsafe path: {member}"}
+
+                zf.extractall(PERSONAL_INFO_DIR)
+                extracted_count = len(zf.namelist())
+
+            print(f"[UPLOAD] Extracted {extracted_count} files to {PERSONAL_INFO_DIR}", flush=True)
+
+            # Also reload engine conversations so the new data is picked up
+            reload_engine_conversations()
+
+            return {
+                "ok": True,
+                "message": f"Successfully extracted {extracted_count} files",
+                "extracted_count": extracted_count,
+                "target_dir": PERSONAL_INFO_DIR
+            }
+        finally:
+            # Clean up temp file
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+    except Exception as e:
+        print(f"[UPLOAD] Error processing zip upload: {e}", flush=True)
+        return {"ok": False, "error": f"Failed to process zip: {str(e)}"}
 
 
 @app.post("/load-conversation-to-context")

@@ -111,6 +111,16 @@
     .preview-message.user { background: rgba(80,120,255,.15); margin-left: 20%; }
     .preview-message.assistant { background: rgba(255,255,255,.08); margin-right: 20%; }
     .preview-message .role { font-size: 10px; opacity: 0.6; margin-bottom: 4px; text-transform: uppercase; }
+    
+    /* System Prompt Template List Styles */
+    .system-prompt-item { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
+    .system-prompt-item:hover { background: rgba(80,120,255,.12); border-color: rgba(80,120,255,.3); }
+    .system-prompt-item.active { background: rgba(80,120,255,.2); border-color: rgba(80,120,255,.4); box-shadow: 0 0 8px rgba(80,120,255,.2); }
+    .system-prompt-item-name { flex: 1; font-size: 13px; font-weight: 500; }
+    .system-prompt-item-actions { display: flex; gap: 6px; opacity: 0; transition: opacity 0.2s; margin-left: 8px; }
+    .system-prompt-item:hover .system-prompt-item-actions { opacity: 1; }
+    .system-prompt-delete-btn { padding: 6px 10px; background: rgba(255,100,100,.15); border: 1px solid rgba(255,100,100,.3); color: #ff6464; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+    .system-prompt-delete-btn:hover { background: rgba(255,100,100,.25); border-color: rgba(255,100,100,.5); }
   </style>
 </head>
 <body>
@@ -244,24 +254,25 @@
         <div class="modal-body">
           <div class="muted" style="margin-bottom:12px; font-size:12px;">Choose an AI personality preset or create a custom one</div>
           
-          <!-- Template Selection -->
+          <!-- Template List -->
           <div style="margin-bottom:16px;">
             <label style="font-size:12px; margin-bottom:6px; display:block; font-weight:600;">AI Personality</label>
-            <select id="system-prompt-template-select" style="width:100%; padding:10px; border-radius:6px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; font-size:13px; outline:none; cursor:pointer;">
-            </select>
+            <div id="system-prompt-template-list" style="background:rgba(0,0,0,.2); border-radius:6px; border:1px solid rgba(255,255,255,.14); max-height:200px; overflow-y:auto;">
+              <div class="muted" style="text-align:center; padding:30px; font-size:12px;">Loading personalities...</div>
+            </div>
             <div id="template-status" class="muted" style="margin-top:6px; font-size:11px;"></div>
           </div>
           
-          <!-- Custom Prompt Input (shown when custom selected) -->
-          <div id="custom-prompt-section" style="display:none;">
-            <label style="font-size:12px; margin-bottom:6px; display:block;">Your Custom Prompt</label>
+          <!-- Prompt Editor Section (shown when any template selected) -->
+          <div id="prompt-editor-section" style="display:none;">
+            <label style="font-size:12px; margin-bottom:6px; display:block; font-weight:600;">AI Personality Content</label>
             <textarea id="system-prompt-input" placeholder="Enter your custom AI personality here..." style="width:100%; min-height:300px; max-height:500px; font-size:13px; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:12px; outline:none; font-family: monospace; resize: vertical;"></textarea>
             
-            <label style="font-size:12px; margin-bottom:6px; display:block; margin-top:12px;">Name this personality (optional)</label>
+            <label style="font-size:12px; margin-bottom:6px; display:block; margin-top:12px;">Personality Name</label>
             <input id="custom-prompt-name" type="text" placeholder="e.g., My Friendly Bot" style="width:100%; padding:10px; border-radius:6px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; font-size:13px; outline:none; box-sizing:border-box;">
             
             <div style="display:flex; gap:10px; margin-top:12px;">
-              <button id="save-system-prompt" style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(80,120,255,.2); color:#e7eefc; font-size:13px; cursor:pointer;">Save</button>
+              <button id="save-system-prompt" style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(80,120,255,.2); background:rgba(80,120,255,.2); color:#e7eefc; font-size:13px; cursor:pointer; border-color:rgba(80,120,255,.4);">Save</button>
               <button id="reset-system-prompt" style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,.08); color:#e7eefc; font-size:13px; cursor:pointer;">Clear</button>
             </div>
           </div>
@@ -282,7 +293,9 @@
           <!-- Search bar and controls -->
           <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
             <input id="conversation-search" type="text" placeholder="Search conversations..." style="flex:1; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px; outline:none;" />
+            <button id="upload-conversation-zip-btn" title="Upload a zip data package to import conversations" style="padding:10px 12px; font-size:12px; background:rgba(80,200,120,.2); border-color:rgba(80,200,120,.4); white-space:nowrap;">📦 Upload Zip</button>
             <button id="reload-conversations-btn" title="Reload from conversations.json" style="padding:10px 12px; font-size:12px; background:rgba(255,180,80,.2); border-color:rgba(255,180,80,.4); white-space:nowrap;">🔄 Reload</button>
+            <input type="file" id="zip-file-input" accept=".zip" style="display:none;" />
           </div>
           
           <!-- Conversation list -->
@@ -327,8 +340,6 @@
           <!-- Tab Switching -->
           <div class="tab-buttons">
             <div class="tab-btn active" data-tab="memories">Memories</div>
-            <div class="tab-btn" data-tab="entities">Entities</div>
-            <div class="tab-btn" data-tab="stats">Stats</div>
             <button id="refresh-memory" style="padding:8px 12px; font-size:12px; flex:0.5;">Refresh</button>
           </div>
 
@@ -353,26 +364,6 @@
             </div>
           </div>
 
-          <!-- Entity List -->
-          <div id="entities-tab" class="tab-content" style="display:none;">
-            <div id="entity-list">
-              <div class="muted" style="text-align:center; padding:30px;">No entities found...</div>
-            </div>
-            <div style="margin-top:12px;">
-              <div style="font-weight:600; font-size:12px; margin-bottom:8px;">Knowledge Graph</div>
-              <div id="relation-list">
-                <div class="muted" style="text-align:center; padding:15px;">No relationships...</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Statistics -->
-          <div id="stats-tab" class="tab-content" style="display:none;">
-            <div id="memory-stats">
-              <div class="muted" style="text-align:center; padding:30px;">Loading...</div>
-            </div>
-          </div>
-          
           <!-- Add Memory -->
           <div style="margin-top:16px; padding-top:12px; border-top:1px solid rgba(255,255,255,.08);">
             <div style="font-weight:600; font-size:13px; margin-bottom:8px;">Add Memory</div>
@@ -867,13 +858,14 @@
   const saveSystemPromptBtn = document.getElementById('save-system-prompt');
   const resetSystemPromptBtn = document.getElementById('reset-system-prompt');
   const systemPromptStatus = document.getElementById('system-prompt-status');
-  const systemPromptTemplateSelect = document.getElementById('system-prompt-template-select');
+  const systemPromptTemplateList = document.getElementById('system-prompt-template-list');
   const templateStatus = document.getElementById('template-status');
-  const customPromptSection = document.getElementById('custom-prompt-section');
+  const promptEditorSection = document.getElementById('prompt-editor-section');
   
-  // 当前选中的模板内容和ID
+  // 当前选中的模板ID和内容
+  let currentSelectedTemplateId = null;
   let currentTemplateContent = '';
-  let lastSelectedTemplateId = 'warm'; // 默认为warm
+  let currentIsBuiltIn = false;  // 标记当前选中的是否为内置模板
   
   // 加载模板列表
   async function loadTemplatesList() {
@@ -881,28 +873,50 @@
       const data = await api('/settings/system-prompt/templates');
       const templates = data.templates || [];
       
-      // Clear existing options (including custom)
-      while (systemPromptTemplateSelect.options.length > 0) {
-        systemPromptTemplateSelect.remove(0);
-      }
+      // 构建列表HTML
+      let listHtml = '';
       
-      // Add template options first
+      // 构建所有模板（内置和自定义）
       templates.forEach(template => {
-        const option = document.createElement('option');
-        option.value = template.id;
-        option.textContent = template.title;
-        systemPromptTemplateSelect.appendChild(option);
+        const isBuiltIn = template.is_builtin;
+        // 只有自定义模板才显示删除按钮
+        const deleteButtonHtml = isBuiltIn ? '' : `<button class="system-prompt-delete-btn" onclick="event.stopPropagation(); deleteSystemPromptTemplate('${template.id}', ${isBuiltIn})">Delete</button>`;
+        listHtml += `
+          <div class="system-prompt-item" data-id="${template.id}" data-builtin="${isBuiltIn}">
+            <div class="system-prompt-item-name">${escapeHtml(template.title)}</div>
+            <div class="system-prompt-item-actions">
+              ${deleteButtonHtml}
+            </div>
+          </div>
+        `;
       });
       
-      // Add custom option at the end
-      const customOption = document.createElement('option');
-      customOption.value = 'custom';
-      customOption.textContent = 'Custom (Create your own)';
-      systemPromptTemplateSelect.appendChild(customOption);
+      // 添加自定义选项（用于新建自定义）
+      listHtml += `
+        <div class="system-prompt-item" data-id="custom-new" data-builtin="false" style="border-style: dashed; opacity: 0.8;">
+          <div class="system-prompt-item-name">+ Create Custom</div>
+        </div>
+      `;
       
-      if (templates.length > 0) {
-        templateStatus.textContent = `${templates.length} built-in personalities available`;
+      systemPromptTemplateList.innerHTML = listHtml;
+      
+      // 添加点击事件监听器
+      systemPromptTemplateList.querySelectorAll('.system-prompt-item').forEach(item => {
+        item.onclick = (e) => {
+          if (!e.target.classList.contains('system-prompt-delete-btn')) {
+            selectSystemPromptTemplate(item.dataset.id, item.dataset.builtin === 'true');
+          }
+        };
+      });
+      
+      // 统计内置和自定义模板数量
+      const builtInCount = templates.filter(t => t.is_builtin).length;
+      const customCount = templates.filter(t => !t.is_builtin).length;
+      let statusText = `${builtInCount} built-in personalities`;
+      if (customCount > 0) {
+        statusText += `, ${customCount} custom`;
       }
+      templateStatus.textContent = statusText;
     } catch (e) {
       templateStatus.textContent = 'Failed to load: ' + e.message;
     }
@@ -920,23 +934,47 @@
     tokensInfo.textContent = `Current system prompt: ~${estimatedTokens} tokens`;
   }
   
-  // 加载指定模板
+  // 选择系统提示模板
+  async function selectSystemPromptTemplate(templateId, isBuiltIn) {
+    currentSelectedTemplateId = templateId;
+    currentIsBuiltIn = isBuiltIn;
+    
+    // 更新列表项的active状态
+    systemPromptTemplateList.querySelectorAll('.system-prompt-item').forEach(item => {
+      item.classList.remove('active');
+    });
+    const selectedItem = systemPromptTemplateList.querySelector(`[data-id="${templateId}"]`);
+    if (selectedItem) {
+      selectedItem.classList.add('active');
+    }
+    
+    if (templateId === 'custom-new') {
+      // 创建新自定义
+      promptEditorSection.style.display = 'block';
+      systemPromptInput.value = '';
+      customPromptName.value = '';
+      systemPromptStatus.textContent = 'Creating new custom personality...';
+      updateSystemPromptTokensInfo('');
+    } else {
+      // 加载任何模板（内置或自定义）
+      await loadTemplateContent(templateId);
+      promptEditorSection.style.display = 'block';  // 显示编辑器
+    }
+  }
+  
+  // 加载指定模板内容
   async function loadTemplateContent(templateId) {
     try {
       const data = await api(`/settings/system-prompt/templates/${templateId}`);
       
       if (data.status === 'success') {
         currentTemplateContent = data.content;
-        systemPromptStatus.textContent = `Using: ${data.title}`;
+        systemPromptInput.value = data.content;
+        customPromptName.value = data.title;
+        systemPromptStatus.textContent = `Loaded: ${data.title}`;
         
         // 更新system prompt tokens显示
         updateSystemPromptTokensInfo(data.content);
-        
-        // 自动保存到backend
-        await api('/settings/system-prompt', 'POST', {
-          system_prompt: data.content
-        });
-        systemPromptStatus.textContent = `✓ Switched to: ${data.title}`;
       } else {
         systemPromptStatus.textContent = 'Error: ' + (data.error || 'Unknown error');
       }
@@ -945,24 +983,38 @@
     }
   }
   
-  // 监听模板选择变化
-  systemPromptTemplateSelect.onchange = async () => {
-    const templateId = systemPromptTemplateSelect.value;
-    lastSelectedTemplateId = templateId;
+  // 删除系统提示模板
+  async function deleteSystemPromptTemplate(templateId, isBuiltIn) {
+    const confirmed = await showConfirm(`Delete this personality template? This action cannot be undone.`);
     
-    // 保存选择到本地存储
-    localStorage.setItem('lastSelectedTemplateId', templateId);
-    
-    if (templateId === 'custom') {
-      customPromptSection.style.display = 'block';
-      currentTemplateContent = '';
-      customPromptName.value = '';
-      systemPromptStatus.textContent = '';
-    } else {
-      customPromptSection.style.display = 'none';
-      await loadTemplateContent(templateId);
+    if (!confirmed) {
+      return;
     }
-  };
+    
+    try {
+      systemPromptStatus.textContent = 'Deleting...';
+      const result = await api(`/settings/system-prompt/templates/${templateId}`, 'DELETE');
+      
+      if (result.status === 'success' || result.ok) {
+        systemPromptStatus.textContent = '✓ Personality deleted successfully';
+        
+        // 重新加载模板列表
+        await loadTemplatesList();
+        
+        // 清空编辑器
+        if (currentSelectedTemplateId === templateId) {
+          promptEditorSection.style.display = 'none';
+          systemPromptInput.value = '';
+          customPromptName.value = '';
+          currentSelectedTemplateId = null;
+        }
+      } else {
+        systemPromptStatus.textContent = 'Error: ' + (result.error || 'Failed to delete');
+      }
+    } catch (e) {
+      systemPromptStatus.textContent = 'Delete failed: ' + e.message;
+    }
+  }
   
   // Open system prompt window
   openSystemPromptBtn.onclick = async () => {
@@ -989,26 +1041,10 @@
       const data = await api('/settings/system-prompt');
       const savedPrompt = data.system_prompt || '';
       
-      // 从本地存储恢复上次选择的模板ID
-      const savedTemplateId = localStorage.getItem('lastSelectedTemplateId') || 'warm';
-      lastSelectedTemplateId = savedTemplateId;
-      
       if (savedPrompt) {
         systemPromptInput.value = savedPrompt;
       } else {
         systemPromptInput.value = '';
-      }
-      
-      // 设置下拉框为上次选择的值
-      systemPromptTemplateSelect.value = savedTemplateId;
-      
-      // 触发change事件来更新UI
-      if (savedTemplateId === 'custom') {
-        customPromptSection.style.display = 'block';
-        systemPromptStatus.textContent = '';
-      } else {
-        customPromptSection.style.display = 'none';
-        await loadTemplateContent(savedTemplateId);
       }
     } catch (e) {
       systemPromptStatus.textContent = 'Failed to load: ' + e.message;
@@ -1027,36 +1063,40 @@
       
       systemPromptStatus.textContent = 'Saving...';
       
-      // 保存自定义人格
-      const saveResponse = await api('/settings/system-prompt/save-custom', 'POST', {
-        title: customPromptName.value.trim() || 'My Custom Personality',
-        content: contentToSave
-      });
-      
-      if (saveResponse.status === 'success') {
-        const personalityId = saveResponse.personality_id;
-        const personalityTitle = saveResponse.title;
+      // Check if we're creating a new custom or editing an existing one
+      if (currentSelectedTemplateId === 'custom-new' || !currentSelectedTemplateId) {
+        // Save new custom personality
+        const saveResponse = await api('/settings/system-prompt/save-custom', 'POST', {
+          title: customPromptName.value.trim() || 'My Custom Personality',
+          content: contentToSave
+        });
         
-        // 保存到settings
+        if (saveResponse.status === 'success') {
+          const personalityId = saveResponse.personality_id;
+          const personalityTitle = saveResponse.title;
+          
+          // 保存到settings
+          await api('/settings/system-prompt', 'POST', {
+            system_prompt: contentToSave
+          });
+          
+          // 重新加载模板列表
+          await loadTemplatesList();
+          
+          systemPromptStatus.textContent = `✓ Saved: ${personalityTitle}`;
+        } else {
+          systemPromptStatus.textContent = 'Error: ' + (saveResponse.error || 'Unknown error');
+        }
+      } else {
+        // Update existing template
         await api('/settings/system-prompt', 'POST', {
           system_prompt: contentToSave
         });
         
-        // 重新加载模板列表
-        await loadTemplatesList();
-        
-        // 选中新保存的人格
-        systemPromptTemplateSelect.value = personalityId;
-        lastSelectedTemplateId = personalityId;
-        localStorage.setItem('lastSelectedTemplateId', personalityId);
-        
-        // 隐藏自定义输入框
-        customPromptSection.style.display = 'none';
-        
-        systemPromptStatus.textContent = `✓ Saved: ${personalityTitle}`;
-      } else {
-        systemPromptStatus.textContent = 'Error: ' + (saveResponse.error || 'Unknown error');
+        systemPromptStatus.textContent = `✓ Updated: ${customPromptName.value}`;
       }
+      
+      updateSystemPromptTokensInfo(contentToSave);
     } catch (e) {
       systemPromptStatus.textContent = 'Failed to save: ' + e.message;
     }
@@ -1068,6 +1108,7 @@
       systemPromptInput.value = '';
       customPromptName.value = '';
       systemPromptStatus.textContent = 'Cleared (not saved yet)';
+      updateSystemPromptTokensInfo('');
     }
   };
 
@@ -1136,6 +1177,56 @@
     } finally {
       reloadConversationsBtn.disabled = false;
       reloadConversationsBtn.textContent = '🔄 Reload';
+    }
+  };
+
+  // ==================== Upload Conversation Zip ====================
+  const uploadZipBtn = document.getElementById('upload-conversation-zip-btn');
+  const zipFileInput = document.getElementById('zip-file-input');
+
+  uploadZipBtn.onclick = () => {
+    zipFileInput.value = '';  // Reset so same file can be re-selected
+    zipFileInput.click();
+  };
+
+  zipFileInput.onchange = async () => {
+    const file = zipFileInput.files[0];
+    if (!file) return;
+
+    const statusEl = document.getElementById('conversation-status');
+
+    // Confirm before uploading
+    const confirmed = await showConfirm(`上传并解压 "${file.name}"？这将导入对话数据。`);
+    if (!confirmed) return;
+
+    try {
+      uploadZipBtn.disabled = true;
+      uploadZipBtn.textContent = '⏳ Uploading...';
+      statusEl.textContent = `Uploading ${file.name}...`;
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('http://127.0.0.1:8787/upload-conversation-zip', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!res.ok) throw new Error(await res.text());
+      const result = await res.json();
+
+      if (result.ok) {
+        statusEl.textContent = `✓ ${result.message}`;
+        // Refresh the conversation list
+        await loadConversationsList();
+      } else {
+        statusEl.textContent = 'Error: ' + (result.error || 'Upload failed');
+      }
+    } catch (e) {
+      statusEl.textContent = 'Upload failed: ' + e.message;
+    } finally {
+      uploadZipBtn.disabled = false;
+      uploadZipBtn.textContent = '📦 Upload Zip';
     }
   };
   
@@ -1522,9 +1613,6 @@
   async function loadMemory() {
     const coreMemoryList = document.getElementById('core-memory-list');
     const memoryLibraryList = document.getElementById('memory-library-list');
-    const entityList = document.getElementById('entity-list');
-    const relationList = document.getElementById('relation-list');
-    const memoryStats = document.getElementById('memory-stats');
     
     try {
       // Use visualization API
@@ -1584,50 +1672,6 @@
       } else {
         memoryLibraryList.innerHTML = '<div class="muted" style="text-align:center; padding:20px; font-size:12px;">Click refresh to load memories or add new ones below...</div>';
       }
-      
-      // Display entities (if plugin supports)
-      const entities = data.knowledge_graph?.entities || [];
-      const plugin = availablePlugins.find(p => p.id === currentPluginId);
-      
-      if (plugin?.supports_graph && entities.length > 0) {
-        entityList.innerHTML = entities.map(e => `
-          <div class="entity-item">
-            <div class="entity-name">${escapeHtml(e.name)}</div>
-            <div class="entity-type">${e.type} • Importance: ${(e.importance * 100).toFixed(0)}%</div>
-          </div>
-        `).join('');
-      } else if (!plugin?.supports_graph) {
-        entityList.innerHTML = '<div class="muted" style="text-align:center; padding:10px;">Current plugin does not support knowledge graph</div>';
-      } else {
-        entityList.innerHTML = '<div class="muted" style="text-align:center; padding:10px;">No entities found</div>';
-      }
-      
-      // Display relationships
-      const relationships = data.knowledge_graph?.relationships || [];
-      if (relationships.length > 0) {
-        relationList.innerHTML = relationships.map(r => `
-          <div class="relation-item">
-            <strong>${escapeHtml(r.source)}</strong> → <span style="opacity:0.7">${r.type}</span> → <strong>${escapeHtml(r.target)}</strong>
-          </div>
-        `).join('');
-      } else {
-        relationList.innerHTML = '<div class="muted" style="text-align:center; padding:10px;">No relationships</div>';
-      }
-      
-      // Statistics info
-      const stats = data.stats || {};
-      const activePlugin = data.active_plugin || currentPluginId;
-      const pluginName = availablePlugins.find(p => p.id === activePlugin)?.name || activePlugin;
-      
-      memoryStats.innerHTML = `
-        <div class="stat-row"><span>Vector Memory Plugin</span><strong>Active</strong></div>
-        <div class="stat-row"><span>Total Memories</span><strong>${stats.total_memories || memories.length}</strong></div>
-        ${stats.total_entities ? `<div class="stat-row"><span>Entities</span><strong>${stats.total_entities}</strong></div>` : ''}
-        ${stats.total_relationships ? `<div class="stat-row"><span>Relationships</span><strong>${stats.total_relationships}</strong></div>` : ''}
-        <div style="margin-top:8px; font-size:10px; opacity:0.5;">
-          Right-click library memories to move to core
-        </div>
-      `;
       
     } catch (e) {
       coreMemoryList.innerHTML = `<div class="muted" style="text-align:center; padding:20px; font-size:12px;">Error: ${e.message}</div>`;

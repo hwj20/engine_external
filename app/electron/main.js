@@ -1,6 +1,7 @@
 const { app, BrowserWindow, shell, ipcMain, Menu } = require("electron");
 const path = require("path");
 const { spawn } = require("child_process");
+const http = require("http");
 const { autoUpdater } = require("electron-updater");
 const log = require("electron-log");
 const { initAutoUpdater, checkForUpdates } = require("./updater");
@@ -9,6 +10,9 @@ const { initAutoUpdater, checkForUpdates } = require("./updater");
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
 log.info('App starting...');
+
+const BACKEND_PORT = 8787;
+const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`;
 
 // ── Backend process management ──────────────────────────────────
 let backendProcess = null;
@@ -28,7 +32,8 @@ function getBackendPath() {
     const binName = process.platform === 'win32' ? 'backend.exe' : 'backend';
     const binPath = path.join(process.resourcesPath, 'bin', binName);
     log.info('Backend binary path (packaged):', binPath);
-    return { executable: binPath, args: [], cwd: path.join(process.resourcesPath, 'data') };
+    // cwd is the bin directory itself; the backend reads DATA_DIR from AppData
+    return { executable: binPath, args: [], cwd: path.join(process.resourcesPath, 'bin') };
   } else {
     // Development: run Python source directly
     const backendDir = path.join(__dirname, '..', '..', 'backend');
@@ -89,12 +94,49 @@ function stopBackend() {
       // On Windows, spawn taskkill to kill the process tree
       spawn('taskkill', ['/pid', backendProcess.pid.toString(), '/f', '/t'], { windowsHide: true });
     } else {
+      // Send SIGTERM; if still alive after 3s, force kill
       backendProcess.kill('SIGTERM');
+      setTimeout(() => {
+        if (backendProcess) {
+          try { backendProcess.kill('SIGKILL'); } catch (_) {}
+        }
+      }, 3000);
     }
   } catch (err) {
     log.error('Error stopping backend:', err);
   }
   backendProcess = null;
+}
+
+/**
+ * Wait for the backend to respond to a health check.
+ * Retries every `interval` ms, up to `timeout` ms total.
+ */
+function waitForBackend(timeout = 30000, interval = 500) {
+  const start = Date.now();
+  return new Promise((resolve, reject) => {
+    function check() {
+      const req = http.get(`${BACKEND_URL}/health`, (res) => {
+        if (res.statusCode === 200) {
+          log.info('Backend is ready');
+          resolve();
+        } else {
+          retry();
+        }
+      });
+      req.on('error', retry);
+      req.setTimeout(1000, () => { req.destroy(); retry(); });
+    }
+    function retry() {
+      if (Date.now() - start >= timeout) {
+        log.warn('Backend did not become ready within timeout');
+        resolve(); // still show window so user can see error state
+      } else {
+        setTimeout(check, interval);
+      }
+    }
+    check();
+  });
 }
 
 function createWindow() {
@@ -150,9 +192,13 @@ function createWindow() {
   return win;
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Start the backend process first
   startBackend();
+  
+  // Wait for backend to be ready before showing UI
+  log.info('Waiting for backend health check...');
+  await waitForBackend();
   
   const mainWindow = createWindow();
   
