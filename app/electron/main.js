@@ -50,6 +50,13 @@ function startBackend() {
 
   const { executable, args, cwd } = getBackendPath();
   log.info('Starting backend:', executable, args.join(' '), '| cwd:', cwd);
+  
+  // Verify binary exists before spawning
+  const fs = require('fs');
+  if (!fs.existsSync(executable)) {
+    log.error('Backend executable not found:', executable);
+    throw new Error(`Backend executable not found: ${executable}`);
+  }
 
   try {
     backendProcess = spawn(executable, args, {
@@ -70,6 +77,8 @@ function startBackend() {
 
     backendProcess.on('error', (err) => {
       log.error('Failed to start backend:', err.message);
+      log.error('Error code:', err.code);
+      log.error('Error stack:', err.stack);
       backendProcess = null;
     });
 
@@ -80,8 +89,10 @@ function startBackend() {
 
     log.info('Backend started, pid:', backendProcess.pid);
   } catch (err) {
-    log.error('Error spawning backend:', err);
+    log.error('Error spawning backend:', err.message);
+    log.error('Stack:', err.stack);
     backendProcess = null;
+    throw err;
   }
 }
 
@@ -114,22 +125,40 @@ function stopBackend() {
  */
 function waitForBackend(timeout = 30000, interval = 500) {
   const start = Date.now();
+  let attemptCount = 0;
   return new Promise((resolve, reject) => {
     function check() {
+      attemptCount++;
+      const elapsed = Date.now() - start;
+      log.info(`[Health Check] Attempt ${attemptCount} (${elapsed}ms elapsed) - Checking ${BACKEND_URL}/health`);
+      
       const req = http.get(`${BACKEND_URL}/health`, (res) => {
         if (res.statusCode === 200) {
-          log.info('Backend is ready');
+          log.info('[Health Check] Backend is ready ✓');
           resolve();
         } else {
+          log.warn(`[Health Check] Got status ${res.statusCode}, retrying...`);
           retry();
         }
       });
-      req.on('error', retry);
-      req.setTimeout(1000, () => { req.destroy(); retry(); });
+      
+      req.on('error', (err) => {
+        log.debug(`[Health Check] Request error (${err.code}): ${err.message}`);
+        retry();
+      });
+      
+      req.setTimeout(2000, () => {
+        log.debug('[Health Check] Request timeout, retrying...');
+        req.destroy();
+        retry();
+      });
     }
+    
     function retry() {
-      if (Date.now() - start >= timeout) {
-        log.warn('Backend did not become ready within timeout');
+      const elapsed = Date.now() - start;
+      if (elapsed >= timeout) {
+        log.error(`[Health Check] Backend did not become ready within ${timeout}ms after ${attemptCount} attempts`);
+        log.error('[Health Check] Showing window anyway - user may see connection errors');
         resolve(); // still show window so user can see error state
       } else {
         setTimeout(check, interval);

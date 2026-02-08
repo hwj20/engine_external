@@ -13,6 +13,8 @@ if os.path.isdir('system_prompts'):
     datas.append(('system_prompts', 'system_prompts'))
 if os.path.isdir('data'):
     datas.append(('data', 'data'))
+if os.path.isdir('memory_plugins'):
+    datas.append(('memory_plugins', 'memory_plugins'))
 
 # Hidden imports for dependencies
 hidden_imports = [
@@ -21,23 +23,22 @@ hidden_imports = [
     'uvicorn.logging',
     'uvicorn.lifespan',
     'uvicorn.lifespan.on',
+    'uvicorn.protocols',
+    'uvicorn.protocols.http',
+    'uvicorn.protocols.http.auto',
     'pydantic',
     'pydantic_core',
-]
-
-a = Analysis(
-    ['main.py'],
-    pathex=[],
-    binaries=[],
-    datas=datas,
-    hiddenimports=hidden_imports,
-    hookspath=[],
-    hooksconfig={},
-    runtime_hooks=[],
-    excludes=[],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
+    'main',
+    'conversations_api',
+    'memory_plugin_api',
+    'memory_plugins',
+    'agent',
+    'agent.core',
+    'agent.llm',
+    'agent.context',
+    'agent.store',
+    'requests',
+    'sqlite3',
     noarchive=False,
 )
 
