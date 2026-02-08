@@ -28,7 +28,6 @@ hidden_imports = [
     'uvicorn.protocols.http.auto',
     'pydantic',
     'pydantic_core',
-    'main',
     'conversations_api',
     'memory_plugin_api',
     'memory_plugins',
@@ -39,6 +38,21 @@ hidden_imports = [
     'agent.store',
     'requests',
     'sqlite3',
+]
+
+a = Analysis(
+    ['main.py'],
+    pathex=[],
+    binaries=[],
+    datas=datas,
+    hiddenimports=hidden_imports,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
     noarchive=False,
 )
 
@@ -56,7 +70,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,  # Keep console for API server output
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
