@@ -1,6 +1,6 @@
 {
     "name": "engine-external",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "private": true,
     "main": "electron/main.js",
     "description": "AURORA Local Agent - A local AI assistant with memory capabilities",
@@ -65,12 +65,6 @@
             "target": [
                 {
                     "target": "nsis",
-                    "arch": [
-                        "x64"
-                    ]
-                },
-                {
-                    "target": "portable",
                     "arch": [
                         "x64"
                     ]
