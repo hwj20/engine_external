@@ -2374,9 +2374,9 @@
         return;
       }
       
-      // Split by newlines for multiple memories
+      // Split by double newlines for multiple memories
       const memories = content
-        .split('\n')
+        .split('\n\n')
         .map(line => line.trim())
         .filter(line => line.length > 0);
       
@@ -2594,7 +2594,14 @@
       
       try {
         await api("/memory/clear", "POST");
-        loadMemory();
+        await loadMemory();
+        // 焦点修复：确保异步操作完成后恢复焦点到主输入框
+        setTimeout(() => {
+          const msgInput = document.getElementById('msg');
+          if (msgInput) {
+            msgInput.focus();
+          }
+        }, 0);
       } catch (e) {
         console.error('Failed to clear:', e);
       }
