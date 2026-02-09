@@ -21,14 +21,20 @@ const UPDATE_CONFIG = {
  */
 function fetchJSON(url) {
   return new Promise((resolve, reject) => {
+    console.log('[Updater] Fetching:', url);
+    
     const request = https.get(url, {
       headers: {
         'User-Agent': 'AURORA-Local-Agent-Updater',
         'Accept': 'application/vnd.github.v3+json'
-      }
+      },
+      timeout: 15000
     }, (response) => {
+      console.log('[Updater] Response status:', response.statusCode);
+      
       // Handle redirects
       if (response.statusCode === 301 || response.statusCode === 302) {
+        console.log('[Updater] Redirect to:', response.headers.location);
         fetchJSON(response.headers.location).then(resolve).catch(reject);
         return;
       }
@@ -49,8 +55,13 @@ function fetchJSON(url) {
       });
     });
 
-    request.on('error', reject);
-    request.setTimeout(10000, () => {
+    request.on('error', (error) => {
+      console.error('[Updater] Request error:', error.code, error.message);
+      reject(error);
+    });
+    
+    request.on('timeout', () => {
+      console.error('[Updater] Request timeout');
       request.destroy();
       reject(new Error('Request timeout'));
     });
@@ -83,16 +94,42 @@ async function getLatestRelease() {
   try {
     const release = await fetchJSON(url);
     
+    console.log('[Updater] Release tag:', release.tag_name);
+    console.log('[Updater] Available assets:');
+    release.assets.forEach((a, i) => {
+      console.log(`  [${i}] ${a.name} (${(a.size / 1024 / 1024).toFixed(2)} MB)`);
+    });
+    
     // Determine platform-specific asset pattern
     let assetPattern;
     const platform = process.platform;
     
     if (platform === 'win32') {
-      assetPattern = (a) => a.name.includes('win') && (a.name.endsWith('.exe') || a.name.endsWith('.zip'));
+      // 优先选择 Setup 版本，过滤掉 blockmap
+      assetPattern = (a) => {
+        const name = a.name.toLowerCase();
+        // 排除 blockmap 和 yml
+        if (name.endsWith('.blockmap') || name.endsWith('.yml')) return false;
+        // 优先匹配 Setup.exe（安装包）
+        if (name.includes('setup') && name.endsWith('.exe')) return true;
+        // 其次匹配普通 .exe（便携版）
+        return name.endsWith('.exe') && !name.includes('setup');
+      };
     } else if (platform === 'darwin') {
-      assetPattern = (a) => (a.name.endsWith('.dmg') || a.name.endsWith('.zip')) && !a.name.includes('win');
+      assetPattern = (a) => {
+        const name = a.name.toLowerCase();
+        // 排除 blockmap 和 yml
+        if (name.endsWith('.blockmap') || name.endsWith('.yml')) return false;
+        // 只要 .dmg 文件
+        return name.endsWith('.dmg');
+      };
     } else if (platform === 'linux') {
-      assetPattern = (a) => (a.name.endsWith('.AppImage') || a.name.endsWith('.deb')) && !a.name.includes('mac') && !a.name.includes('win');
+      assetPattern = (a) => {
+        const name = a.name.toLowerCase();
+        if (name.endsWith('.yml')) return false;
+        // 优先 AppImage，其次 deb
+        return name.endsWith('.appimage') || name.endsWith('.deb');
+      };
     } else {
       console.log('[Updater] Unknown platform:', platform);
       return null;
@@ -100,13 +137,13 @@ async function getLatestRelease() {
     
     // Find the appropriate asset
     const asset = release.assets.find(assetPattern);
-
     if (!asset) {
-      console.log(`[Updater] No asset found for platform ${platform} in release`);
+      console.log(`[Updater] No compatible asset found for platform ${platform}`);
       console.log('[Updater] Available assets:', release.assets.map(a => a.name).join(', '));
       return null;
     }
-
+    console.log('[Updater] Selected asset:', asset.name);
+    
     return {
       version: release.tag_name.replace(/^v/, ''),
       downloadUrl: asset.browser_download_url,
@@ -130,42 +167,55 @@ async function checkForUpdates(silent = true) {
   console.log('[Updater] Checking for updates...');
   console.log('[Updater] Current version:', UPDATE_CONFIG.currentVersion);
 
-  const latestRelease = await getLatestRelease();
-  
-  if (!latestRelease) {
-    if (!silent) {
-      dialog.showMessageBox({
-        type: 'info',
-        title: 'Update Check',
-        message: 'Could not check for updates',
-        detail: 'Please check your internet connection or try again later.'
-      });
+  try {
+    const latestRelease = await getLatestRelease();
+    
+    if (!latestRelease) {
+      if (!silent) {
+        dialog.showMessageBox({
+          type: 'info',
+          title: 'Update Check',
+          message: 'Could not check for updates',
+          detail: 'Please check your internet connection or try again later.\n\nNote: Check the console for detailed error messages.'
+        });
+      }
+      return { updateAvailable: false };
     }
-    return { updateAvailable: false };
-  }
 
-  console.log('[Updater] Latest version:', latestRelease.version);
+    console.log('[Updater] Latest version:', latestRelease.version);
 
-  const comparison = compareVersions(latestRelease.version, UPDATE_CONFIG.currentVersion);
-  
-  if (comparison > 0) {
-    console.log('[Updater] Update available!');
-    return {
-      updateAvailable: true,
-      currentVersion: UPDATE_CONFIG.currentVersion,
-      newVersion: latestRelease.version,
-      downloadUrl: latestRelease.downloadUrl,
-      releaseUrl: latestRelease.releaseUrl,
-      releaseNotes: latestRelease.releaseNotes
-    };
-  } else {
-    console.log('[Updater] Already up to date');
+    const comparison = compareVersions(latestRelease.version, UPDATE_CONFIG.currentVersion);
+    
+    if (comparison > 0) {
+      console.log('[Updater] Update available!');
+      return {
+        updateAvailable: true,
+        currentVersion: UPDATE_CONFIG.currentVersion,
+        newVersion: latestRelease.version,
+        downloadUrl: latestRelease.downloadUrl,
+        releaseUrl: latestRelease.releaseUrl,
+        releaseNotes: latestRelease.releaseNotes
+      };
+    } else {
+      console.log('[Updater] Already up to date');
+      if (!silent) {
+        dialog.showMessageBox({
+          type: 'info',
+          title: 'No Updates Available',
+          message: 'You are running the latest version',
+          detail: `Current version: ${UPDATE_CONFIG.currentVersion}`
+        });
+      }
+      return { updateAvailable: false };
+    }
+  } catch (error) {
+    console.error('[Updater] Unexpected error in checkForUpdates:', error);
     if (!silent) {
       dialog.showMessageBox({
-        type: 'info',
-        title: 'No Updates Available',
-        message: 'You are running the latest version',
-        detail: `Current version: ${UPDATE_CONFIG.currentVersion}`
+        type: 'error',
+        title: 'Update Check Failed',
+        message: 'An error occurred while checking for updates',
+        detail: error.message
       });
     }
     return { updateAvailable: false };

@@ -104,7 +104,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: app/dist/*
+          files: |
+            app/dist/*Setup*.exe
+            app/dist/*.dmg
+            app/dist/*.AppImage
+            app/dist/*.deb
+            app/dist/latest*.yml
           draft: false
           prerelease: false
         env:
