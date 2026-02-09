@@ -29,7 +29,11 @@ class SettingsStore:
                 "max_input_tokens": 2000,
                 "max_output_tokens": 800,
                 "temperature": 0.7,
-                "dev_mode": False
+                "dev_mode": False,
+                "history_strategy": "compression",
+                "compression_threshold": 1000,
+                "compression_target": 200,
+                "language": "zh"
             })
         else:
             print(f"[SettingsStore] Loading existing settings from {path}", flush=True)
@@ -43,6 +47,14 @@ class SettingsStore:
                 existing["temperature"] = 0.7
             if "dev_mode" not in existing:
                 existing["dev_mode"] = False
+            if "history_strategy" not in existing:
+                existing["history_strategy"] = "compression"
+            if "compression_threshold" not in existing:
+                existing["compression_threshold"] = 1000
+            if "compression_target" not in existing:
+                existing["compression_target"] = 200
+            if "language" not in existing:
+                existing["language"] = "zh"
             self.set(existing)
 
     def set(self, data: Dict[str, Any]) -> None:

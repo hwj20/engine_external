@@ -70,10 +70,10 @@ Write-Host "Starting frontend..." -ForegroundColor Yellow
 Write-Host "Location: $AppDir" -ForegroundColor Gray
 Write-Host ""
 
-# Start frontend (blocking)
+# Start frontend (blocking, with --skip-backend since we started backend above)
 Push-Location $AppDir
 try {
-    npm run dev
+    npx electron . --skip-backend
 } finally {
     Pop-Location
     

@@ -121,65 +121,145 @@
     .system-prompt-item:hover .system-prompt-item-actions { opacity: 1; }
     .system-prompt-delete-btn { padding: 6px 10px; background: rgba(255,100,100,.15); border: 1px solid rgba(255,100,100,.3); color: #ff6464; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
     .system-prompt-delete-btn:hover { background: rgba(255,100,100,.25); border-color: rgba(255,100,100,.5); }
+    
+    /* Language Selector Styles */
+    .language-selector { display: flex; align-items: center; gap: 8px; }
+    .language-selector select { padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,.14); background: rgba(0,0,0,.25); color: #e7eefc; font-size: 12px; cursor: pointer; outline: none; transition: all 0.2s; }
+    .language-selector select:hover { border-color: rgba(255,255,255,.24); background: rgba(0,0,0,.35); }
   </style>
+  <script src="../i18n.js"></script>
+  <script>
+    // Ensure i18n is available before DOM parsing
+    window.waitForI18N = new Promise((resolve) => {
+      if (window.i18n) {
+        resolve();
+      } else {
+        const checkInterval = setInterval(() => {
+          if (window.i18n) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 10);
+      }
+    });
+
+    // Define changeLanguage globally so inline onchange can find it
+    function changeLanguage(lang) {
+      console.log('[UI] changeLanguage called with:', lang);
+      if (!window.i18n || !window.i18n.translations || Object.keys(window.i18n.translations).length === 0) {
+        console.error('[UI] i18n not ready yet, translations:', window.i18n ? window.i18n.translations : 'i18n missing');
+        return;
+      }
+      window.i18n.setLanguage(lang);
+      
+      // Also save language to backend settings
+      try {
+        fetch('http://127.0.0.1:8787/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ language: lang })
+        }).then(res => {
+          if (res.ok) console.log('[UI] Language saved to backend:', lang);
+        }).catch(err => console.warn('[UI] Failed to save language to backend:', err));
+      } catch (e) {
+        console.warn('[UI] Failed to save language to backend:', e);
+      }
+      
+      console.log('[UI] Language switched to:', lang);
+    }
+  </script>
 </head>
 <body>
   <header>
     <div>
-      <div style="font-weight:700;">Engine External</div>
-      <div class="badge">Local-only • Backend: 127.0.0.1:8787 • Version <span id="ver"></span></div>
+      <div style="font-weight:700;" data-i18n="header.title">Engine External</div>
+      <div class="badge">
+        <span data-i18n="header.badge_local">Local-only</span> • <span data-i18n="header.badge_backend">Backend: 127.0.0.1:8787</span> • <span data-i18n="header.badge_version">Version</span> <span id="ver"></span>
+      </div>
     </div>
-    <div class="badge">Tip: Start backend first, then open chat.</div>
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <div class="language-selector">
+        <label for="language-select" style="font-size: 12px; margin: 0; opacity: 0.7;">🌐</label>
+        <select id="language-select" onchange="changeLanguage(this.value)">
+          <option value="en" data-i18n="header.language_en">English</option>
+          <option value="zh" data-i18n="header.language_zh" selected>中文</option>
+        </select>
+      </div>
+      <div class="badge" data-i18n="header.badge_tip">Tip: Start backend first, then open chat.</div>
+    </div>
   </header>
 
   <div class="wrap">
     <aside class="panel">
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" id="settings-toggle">
-          <div style="font-weight:700;">Settings</div>
+          <div style="font-weight:700;" data-i18n="settings.title">Settings</div>
           <span id="settings-arrow">▼</span>
         </div>
         <div id="settings-content" style="display:none; margin-top:10px;">
-          <div class="muted" style="margin-bottom:10px;">Enter OpenAI-compatible base_url / api_key / model (stored locally only).</div>
+          <div class="muted" style="margin-bottom:10px;" data-i18n="settings.description">Enter OpenAI-compatible base_url / api_key / model (stored locally only).</div>
 
-          <label>Base URL (e.g. https://api.openai.com)</label>
+          <label data-i18n="settings.base_url">Base URL (e.g. https://api.openai.com)</label>
           <input id="base_url" placeholder="https://api.openai.com" />
 
-          <label style="margin-top:10px;">API Key (leave empty to keep existing key)</label>
-          <input id="api_key" type="password" placeholder="Leave empty to skip" />
+          <label style="margin-top:10px;" data-i18n="settings.api_key">API Key (leave empty to keep existing key)</label>
+          <input id="api_key" type="password" data-i18n="settings.api_key" data-i18n-placeholder />
 
-          <label style="margin-top:10px;">Model</label>
+          <label style="margin-top:10px;" data-i18n="settings.model">Model</label>
           <select id="model" style="width:100%; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px; margin-bottom:8px;">
-            <option value="">-- Select Model --</option>
+            <option value="" data-i18n="settings.model_select">-- Select Model --</option>
             <optgroup label="OpenAI Models">
-              <option value="">Loading models from OpenAI...</option>
+              <option value="" data-i18n="settings.model_loading">Loading models from OpenAI...</option>
             </optgroup>
             <optgroup label="Custom">
-              <option value="custom">Custom Model...</option>
+              <option value="custom" data-i18n="settings.model_custom">Custom Model...</option>
             </optgroup>
           </select>
-          <button id="refresh-models-btn" style="width:100%; padding:10px 16px; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; cursor:pointer; margin-bottom:10px;">Refresh Models</button>
+          <button id="refresh-models-btn" style="width:100%; padding:10px 16px; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; cursor:pointer; margin-bottom:10px;" data-i18n="settings.refresh_models">Refresh Models</button>
           <div id="model-status" class="muted" style="font-size:12px; margin-bottom:10px; display:none;"></div>
-          <input id="model_custom" placeholder="Enter custom model name" style="display:none; margin-top:6px;" />
+          <input id="model_custom" data-i18n="settings.custom_model_placeholder" data-i18n-placeholder style="display:none; margin-top:6px;" />
 
-          <label style="margin-top:10px;">Max Input Tokens (context limit)</label>
-          <input id="max_input_tokens" type="number" placeholder="2000" min="100" max="128000" />
-          <div id="system_prompt_tokens_info" class="muted" style="font-size:12px; margin-top:2px;"></div>
-
-          <label style="margin-top:10px;">Max Output Tokens (response limit)</label>
+          <label style="margin-top:10px;" data-i18n="settings.max_output_tokens">Max Output Tokens (response limit)</label>
           <input id="max_output_tokens" type="number" placeholder="800" min="100" max="32000" />
 
-          <label style="margin-top:10px;">Temperature (0.0 = deterministic, 1.0 = creative)</label>
+          <label style="margin-top:10px;" data-i18n="settings.temperature">Temperature (0.0 = deterministic, 1.0 = creative)</label>
           <input id="temperature" type="number" placeholder="0.7" min="0" max="2" step="0.1" />
 
           <div style="margin-top:12px; display:flex; align-items:center; gap:8px;">
             <input id="dev_mode" type="checkbox" style="width:auto; margin:0;" />
-            <label for="dev_mode" style="margin:0; cursor:pointer;">Developer Mode (show token usage)</label>
+            <label for="dev_mode" style="margin:0; cursor:pointer;" data-i18n="settings.dev_mode_label">Developer Mode (show token usage)</label>
+          </div>
+
+          <!-- 对话历史管理 -->
+          <div style="margin-top:16px; padding-top:12px; border-top:1px solid rgba(255,255,255,.08);">
+            <label style="font-weight:600; margin-bottom:8px; display:block;" data-i18n="settings.history_strategy">对话历史策略</label>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin:0;">
+                <input type="radio" name="history_strategy" value="compression" style="width:auto; margin:0;" checked />
+                <span data-i18n="settings.compression">智能压缩 (推荐) — 自动压缩旧对话，保留核心信息</span>
+              </label>
+              <div id="compression-options" style="display:block; margin-top:8px; margin-left:24px;">
+                <label style="margin-bottom:6px; display:block;" data-i18n="settings.compression_threshold">压缩阈值 (tokens，历史超过此值时触发压缩)</label>
+                <input id="compression_threshold" type="number" placeholder="1000" min="200" max="10000" />
+                <label style="margin-top:6px; display:block;" data-i18n="settings.compression_target">压缩目标 (tokens，压缩后的目标大小)</label>
+                <input id="compression_target" type="number" placeholder="200" min="50" max="2000" />
+              </div>
+
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin:0; margin-top:8px;">
+                <input type="radio" name="history_strategy" value="sliding_window" style="width:auto; margin:0;" />
+                <span data-i18n="settings.sliding_window">滑动窗口 (传统) — 截断早期对话</span>
+              </label>
+              <div id="sliding-window-options" style="display:none; margin-top:8px; margin-left:24px;">
+                <label style="margin-bottom:6px; display:block;" data-i18n="settings.max_input_tokens">Max Input Tokens (context limit)</label>
+                <input id="max_input_tokens" type="number" placeholder="2000" min="100" max="128000" />
+                <div id="system_prompt_tokens_info" class="muted" style="font-size:12px; margin-top:2px;"></div>
+              </div>
+            </div>
           </div>
 
           <div style="display:flex; gap:10px; margin-top:12px;">
-            <button id="save">Save</button>
-            <button id="health">Test Backend</button>
+            <button id="save" data-i18n="settings.save">Save</button>
+            <button id="health" data-i18n="settings.test_backend">Test Backend</button>
           </div>
         </div>
         <div id="status" class="muted" style="margin-top:10px;"></div>
@@ -188,58 +268,58 @@
       <!-- System Prompt Panel -->
       <div class="card" style="margin-top:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="font-weight:700;">System Prompt</div>
+          <div style="font-weight:700;" data-i18n="system_prompt.title">System Prompt</div>
         </div>
-        <button id="open-system-prompt-window" style="width:100%; margin-top:10px; padding:12px; font-size:14px;">Edit System Prompt</button>
+        <button id="open-system-prompt-window" style="width:100%; margin-top:10px; padding:12px; font-size:14px;" data-i18n="system_prompt.edit_button">Edit System Prompt</button>
       </div>
 
       <!-- Conversation History Panel -->
       <div class="card" style="margin-top:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="font-weight:700;">Chat History</div>
+          <div style="font-weight:700;" data-i18n="chat_history.title">Chat History</div>
         </div>
-        <button id="open-conversations-window" style="width:100%; margin-top:10px; padding:12px; font-size:14px;">Load Conversation History</button>
+        <button id="open-conversations-window" style="width:100%; margin-top:10px; padding:12px; font-size:14px;" data-i18n="chat_history.button">Load Conversation History</button>
       </div>
 
       <!-- Memory Panel (Modal/Popup Mode) -->
       <div class="card" style="margin-top:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="font-weight:700;">Memory</div>
+          <div style="font-weight:700;" data-i18n="memory.title">Memory</div>
         </div>
-        <button id="open-memory-window" style="width:100%; margin-top:10px; padding:12px; font-size:14px;">Open Memory Window</button>
+        <button id="open-memory-window" style="width:100%; margin-top:10px; padding:12px; font-size:14px;" data-i18n="memory.button">Open Memory Window</button>
       </div>
 
       <!-- User Profile Card -->
       <div class="card" style="margin-top:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" id="profile-toggle">
-          <div style="font-weight:700;">👤 User Profile</div>
+          <div style="font-weight:700;" data-i18n="user_profile.title">User Profile</div>
           <span id="profile-arrow" style="font-size:10px;">▶</span>
         </div>
         <div id="profile-content" style="display:none; margin-top:10px;">
-          <label>Name / Nickname</label>
-          <input id="user_name" placeholder="e.g. Alice, John..." />
+          <label data-i18n="user_profile.name">Name / Nickname</label>
+          <input id="user_name" data-i18n="user_profile.name_placeholder" data-i18n-placeholder />
           
-          <label style="margin-top:8px;">Age</label>
-          <input id="user_age" type="number" placeholder="e.g. 25" min="1" max="150" />
+          <label style="margin-top:8px;" data-i18n="user_profile.age">Age</label>
+          <input id="user_age" type="number" data-i18n="user_profile.age_placeholder" data-i18n-placeholder min="1" max="150" />
           
-          <label style="margin-top:8px;">Gender</label>
+          <label style="margin-top:8px;" data-i18n="user_profile.gender">Gender</label>
           <select id="user_gender" style="width:100%; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px;">
-            <option value="">-- Not specified --</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
+            <option value="" data-i18n="user_profile.gender_not_specified">-- Not specified --</option>
+            <option value="Male" data-i18n="user_profile.gender_male">Male</option>
+            <option value="Female" data-i18n="user_profile.gender_female">Female</option>
+            <option value="Other" data-i18n="user_profile.gender_other">Other</option>
           </select>
           
-          <label style="margin-top:8px;">Occupation</label>
-          <input id="user_occupation" placeholder="e.g. Software Engineer..." />
+          <label style="margin-top:8px;" data-i18n="user_profile.occupation">Occupation</label>
+          <input id="user_occupation" data-i18n="user_profile.occupation_placeholder" data-i18n-placeholder />
           
-          <label style="margin-top:8px;">Location</label>
-          <input id="user_location" placeholder="e.g. Beijing, China..." />
+          <label style="margin-top:8px;" data-i18n="user_profile.location">Location</label>
+          <input id="user_location" data-i18n="user_profile.location_placeholder" data-i18n-placeholder />
           
-          <label style="margin-top:8px;">Short Bio</label>
-          <textarea id="user_bio" placeholder="Tell me about yourself..." style="min-height:60px;"></textarea>
+          <label style="margin-top:8px;" data-i18n="user_profile.bio">Short Bio</label>
+          <textarea id="user_bio" data-i18n="user_profile.bio_placeholder" data-i18n-placeholder style="min-height:60px;"></textarea>
           
-          <button id="save-profile" style="width:100%; margin-top:10px; padding:10px 12px; background:rgba(80,120,255,.3); border-color:rgba(80,120,255,.4); font-weight:500;">Save Profile</button>
+          <button id="save-profile" style="width:100%; margin-top:10px; padding:10px 12px; background:rgba(80,120,255,.3); border-color:rgba(80,120,255,.4); font-weight:500;" data-i18n="user_profile.save">Save Profile</button>
         </div>
       </div>
     </aside>
@@ -248,32 +328,32 @@
     <div id="system-prompt-modal" class="modal">
       <div class="modal-content" style="max-width: 700px;">
         <div class="modal-header">
-          <h2>System Prompt</h2>
+          <h2 data-i18n="system_prompt.title">System Prompt</h2>
           <span class="modal-close" id="close-system-prompt-modal">&times;</span>
         </div>
         <div class="modal-body">
-          <div class="muted" style="margin-bottom:12px; font-size:12px;">Choose an AI personality preset or create a custom one</div>
+          <div class="muted" style="margin-bottom:12px; font-size:12px;" data-i18n="system_prompt.description">Choose an AI personality preset or create a custom one</div>
           
           <!-- Template List -->
           <div style="margin-bottom:16px;">
-            <label style="font-size:12px; margin-bottom:6px; display:block; font-weight:600;">AI Personality</label>
+            <label style="font-size:12px; margin-bottom:6px; display:block; font-weight:600;" data-i18n="system_prompt.personality">AI Personality</label>
             <div id="system-prompt-template-list" style="background:rgba(0,0,0,.2); border-radius:6px; border:1px solid rgba(255,255,255,.14); max-height:200px; overflow-y:auto;">
-              <div class="muted" style="text-align:center; padding:30px; font-size:12px;">Loading personalities...</div>
+              <div class="muted" style="text-align:center; padding:30px; font-size:12px;" data-i18n="system_prompt.loading">Loading personalities...</div>
             </div>
             <div id="template-status" class="muted" style="margin-top:6px; font-size:11px;"></div>
           </div>
           
           <!-- Prompt Editor Section (shown when any template selected) -->
           <div id="prompt-editor-section" style="display:none;">
-            <label style="font-size:12px; margin-bottom:6px; display:block; font-weight:600;">AI Personality Content</label>
-            <textarea id="system-prompt-input" placeholder="Enter your custom AI personality here..." style="width:100%; min-height:300px; max-height:500px; font-size:13px; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:12px; outline:none; font-family: monospace; resize: vertical;"></textarea>
+            <label style="font-size:12px; margin-bottom:6px; display:block; font-weight:600;" data-i18n="system_prompt.content">AI Personality Content</label>
+            <textarea id="system-prompt-input" data-i18n="system_prompt.content" data-i18n-placeholder style="width:100%; min-height:300px; max-height:500px; font-size:13px; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:12px; outline:none; font-family: monospace; resize: vertical;"></textarea>
             
-            <label style="font-size:12px; margin-bottom:6px; display:block; margin-top:12px;">Personality Name</label>
-            <input id="custom-prompt-name" type="text" placeholder="e.g., My Friendly Bot" style="width:100%; padding:10px; border-radius:6px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; font-size:13px; outline:none; box-sizing:border-box;">
+            <label style="font-size:12px; margin-bottom:6px; display:block; margin-top:12px;" data-i18n="system_prompt.name">Personality Name</label>
+            <input id="custom-prompt-name" type="text" data-i18n="system_prompt.name_placeholder" data-i18n-placeholder style="width:100%; padding:10px; border-radius:6px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; font-size:13px; outline:none; box-sizing:border-box;">
             
             <div style="display:flex; gap:10px; margin-top:12px;">
-              <button id="save-system-prompt" style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(80,120,255,.2); background:rgba(80,120,255,.2); color:#e7eefc; font-size:13px; cursor:pointer; border-color:rgba(80,120,255,.4);">Save</button>
-              <button id="reset-system-prompt" style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,.08); color:#e7eefc; font-size:13px; cursor:pointer;">Clear</button>
+              <button id="save-system-prompt" style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(80,120,255,.2); background:rgba(80,120,255,.2); color:#e7eefc; font-size:13px; cursor:pointer; border-color:rgba(80,120,255,.4);" data-i18n="system_prompt.save">Save</button>
+              <button id="reset-system-prompt" style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,.08); color:#e7eefc; font-size:13px; cursor:pointer;" data-i18n="system_prompt.clear">Clear</button>
             </div>
           </div>
           
@@ -286,21 +366,21 @@
     <div id="conversations-modal" class="modal">
       <div class="modal-content" style="max-width: 700px;">
         <div class="modal-header">
-          <h2>Conversation History</h2>
+          <h2 data-i18n="chat_history.title">Conversation History</h2>
           <span class="modal-close" id="close-conversations-modal">&times;</span>
         </div>
         <div class="modal-body">
           <!-- Search bar and controls -->
           <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
-            <input id="conversation-search" type="text" placeholder="Search conversations..." style="flex:1; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px; outline:none;" />
-            <button id="upload-conversation-zip-btn" title="Upload a zip data package to import conversations" style="padding:10px 12px; font-size:12px; background:rgba(80,200,120,.2); border-color:rgba(80,200,120,.4); white-space:nowrap;">📦 Upload Zip</button>
-            <button id="reload-conversations-btn" title="Reload from conversations.json" style="padding:10px 12px; font-size:12px; background:rgba(255,180,80,.2); border-color:rgba(255,180,80,.4); white-space:nowrap;">🔄 Reload</button>
+            <input id="conversation-search" type="text" data-i18n="chat_history.search_placeholder" data-i18n-placeholder style="flex:1; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px; outline:none;" />
+            <button id="upload-conversation-zip-btn" data-i18n-title="chat_history.upload_zip_title" title="Upload a zip data package to import conversations" style="padding:10px 12px; font-size:12px; background:rgba(80,200,120,.2); border-color:rgba(80,200,120,.4); white-space:nowrap;">📦 Upload Zip</button>
+            <button id="reload-conversations-btn" data-i18n-title="chat_history.reload_title" title="Reload from conversations.json" style="padding:10px 12px; font-size:12px; background:rgba(255,180,80,.2); border-color:rgba(255,180,80,.4); white-space:nowrap;">🔄 Reload</button>
             <input type="file" id="zip-file-input" accept=".zip" style="display:none;" />
           </div>
           
           <!-- Conversation list -->
           <div id="conversation-list" style="max-height: 55vh; overflow-y: auto;">
-            <div class="muted" style="text-align:center; padding:30px;">Loading conversations...</div>
+            <div class="muted" style="text-align:center; padding:30px;" data-i18n="chat_history.empty">Loading conversations...</div>
           </div>
           
           <!-- Status -->
@@ -311,11 +391,11 @@
 
     <!-- Custom Confirm Dialog -->
     <div id="confirm-dialog" class="modal" style="display:none; z-index:9999;">
-      <div class="modal-content" style="max-width: 260px; max-height: 100px; background:rgba(20,30,60,.95); border:1px solid rgba(80,120,255,.3); display:flex; flex-direction:column;">
+      <div id="confirm-modal-content" class="modal-content" style="max-width: 400px; background:rgba(20,30,60,.95); border:1px solid rgba(80,120,255,.3); display:flex; flex-direction:column;">
         <div class="modal-body" style="padding:10px; flex:1; display:flex; flex-direction:column; justify-content:space-between;">
           <h3 id="confirm-title" style="display:none;"></h3>
-          <p id="confirm-message" style="margin:0 0 8px 0; font-size:13px; color:rgba(231,238,252,.9); line-height:1.3; text-align:center;"></p>
-          <div style="display:flex; gap:8px; justify-content:center;">
+          <p id="confirm-message" style="margin:0 0 12px 0; font-size:13px; color:rgba(231,238,252,.9); line-height:1.4; text-align:center; word-wrap:break-word;"></p>
+          <div style="display:flex; gap:8px; justify-content:center; flex-shrink:0;">
             <button id="confirm-cancel" style="padding:6px 16px; border-radius:4px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.08); color:#e7eefc; font-size:12px; cursor:pointer;">取消</button>
             <button id="confirm-ok" style="padding:6px 16px; border-radius:4px; border:1px solid rgba(80,120,255,.4); background:rgba(80,120,255,.3); color:#e7eefc; font-size:12px; cursor:pointer;">确认</button>
           </div>
@@ -328,7 +408,7 @@
     <div id="memory-modal" class="modal">
       <div class="modal-content">
         <div class="modal-header">
-          <h2>Memory</h2>
+          <h2 data-i18n="memory.title">Memory</h2>
           <span class="modal-close" id="close-memory-modal">&times;</span>
         </div>
         <div class="modal-body">
@@ -367,10 +447,10 @@
           <!-- Add Memory -->
           <div style="margin-top:16px; padding-top:12px; border-top:1px solid rgba(255,255,255,.08);">
             <div style="font-weight:600; font-size:13px; margin-bottom:8px;">Add Memory</div>
-            <textarea id="new-memory" placeholder="Enter memory content..." style="width:100%; min-height:60px; font-size:12px; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:8px; outline:none;"></textarea>
+            <textarea id="new-memory" data-i18n="memory.new_memory" data-i18n-placeholder style="width:100%; min-height:60px; font-size:12px; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:8px; outline:none;"></textarea>
             <div style="display:flex; gap:6px; margin-top:8px;">
               <button id="add-memory" style="flex:1; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(80,120,255,.2); color:#e7eefc; font-size:12px; cursor:pointer;">Add</button>
-              <button id="auto-select-core" style="flex:1; padding:8px; border-radius:8px; border:1px solid rgba(255,200,100,.3); background:rgba(255,200,100,.15); color:#e7eefc; font-size:12px; cursor:pointer;" title="Let AI select important memories for Core">🤖 Auto Core</button>
+              <button id="auto-select-core" data-i18n-title="memory.auto_core_title" style="flex:1; padding:8px; border-radius:8px; border:1px solid rgba(255,200,100,.3); background:rgba(255,200,100,.15); color:#e7eefc; font-size:12px; cursor:pointer;" title="Let AI select important memories for Core">🤖 Auto Core</button>
               <button id="clear-memory" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(255,80,80,.2); color:#e7eefc; font-size:12px; cursor:pointer;">Clear</button>
             </div>
             <div id="memory-status" class="muted" style="margin-top:8px; font-size:11px;"></div>
@@ -399,10 +479,10 @@
           </div>
         </div>
         
-        <label>Message</label>
-        <textarea id="msg" placeholder="Say something... (start backend first)"></textarea>
+        <label data-i18n="main_chat.message_placeholder">Message</label>
+        <textarea id="msg" data-i18n="main_chat.message_placeholder" data-i18n-placeholder></textarea>
         <div style="display:flex; gap:10px; margin-top:10px;">
-          <button id="send">Send</button>
+          <button id="send" data-i18n="main_chat.send">Send</button>
           <button id="clear">Clear</button>
         </div>
         <div id="meta" class="muted" style="margin-top:10px;"></div>
@@ -411,7 +491,24 @@
   </div>
 
 <script>
-  document.getElementById("ver").textContent = (window.aurora && window.aurora.version) ? window.aurora.version : "0.1.0";
+  // Get version from main process via IPC
+  async function initializeUI() {
+    if (window.aurora && typeof window.aurora.getAppVersion === 'function') {
+      const version = await window.aurora.getAppVersion();
+      const verElement = document.getElementById('ver');
+      if (verElement) {
+        verElement.textContent = version;
+      }
+    }
+  }
+  
+  // Initialize on DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeUI);
+  } else {
+    initializeUI();
+  }
+  
   const chatlog = document.getElementById("chatlog");
   const status = document.getElementById("status");
   const meta = document.getElementById("meta");
@@ -428,6 +525,22 @@
       arrow.textContent = "▼";
     }
   };
+
+  // 对话历史策略切换：显示/隐藏相应选项
+  function toggleHistoryStrategyOptions(strategy) {
+    const compressionOpts = document.getElementById("compression-options");
+    const slidingOpts = document.getElementById("sliding-window-options");
+    if (strategy === "compression") {
+      compressionOpts.style.display = "block";
+      slidingOpts.style.display = "none";
+    } else {
+      compressionOpts.style.display = "none";
+      slidingOpts.style.display = "block";
+    }
+  }
+  document.querySelectorAll('input[name="history_strategy"]').forEach(r => {
+    r.addEventListener("change", e => toggleHistoryStrategyOptions(e.target.value));
+  });
 
   // User Profile collapse/expand toggle
   document.getElementById("profile-toggle").onclick = () => {
@@ -487,6 +600,7 @@
 
   // ==================== Custom Confirm Dialog ====================
   const confirmDialog = document.getElementById('confirm-dialog');
+  const confirmModalContent = document.getElementById('confirm-modal-content');
   const confirmTitle = document.getElementById('confirm-title');
   const confirmMessage = document.getElementById('confirm-message');
   const confirmOkBtn = document.getElementById('confirm-ok');
@@ -497,6 +611,24 @@
       confirmTitle.style.display = 'none';
       confirmMessage.textContent = message;
       confirmDialog.style.display = 'flex';
+      
+      // 重置 max-height 以允许内容正确布局
+      confirmModalContent.style.maxHeight = 'none';
+      
+      // 使用 setTimeout 在下一帧重新计算尺寸
+      setTimeout(() => {
+        const messageEl = confirmMessage;
+        const scrollHeight = messageEl.scrollHeight;
+        const contentPadding = 30; // modal-body padding
+        const buttonHeight = 36; // 估计按钮高度 + margin
+        const margin = 12; // message 和 button 之间的 margin
+        
+        // 计算所需的总高度，最小 120px，最大 400px
+        let requiredHeight = contentPadding + scrollHeight + margin + buttonHeight;
+        let maxHeight = Math.min(Math.max(requiredHeight, 120), 400);
+        
+        confirmModalContent.style.maxHeight = maxHeight + 'px';
+      }, 0);
       
       // Create handlers that resolve the promise and cleanup
       const handleOk = () => {
@@ -565,12 +697,26 @@
       document.getElementById("dev_mode").checked = s.dev_mode || false;
       devModeEnabled = s.dev_mode || false;
       
+      // Load history strategy
+      const strategy = s.history_strategy || "compression";
+      document.querySelector(`input[name="history_strategy"][value="${strategy}"]`).checked = true;
+      document.getElementById("compression_threshold").value = s.compression_threshold || "1000";
+      document.getElementById("compression_target").value = s.compression_target || "200";
+      toggleHistoryStrategyOptions(strategy);
+      
       // Update system prompt tokens info
       if (s.system_prompt) {
         updateSystemPromptTokensInfo(s.system_prompt);
       }
       
       status.textContent = "Loaded settings (api_key hidden)";
+      
+      // Load and apply language setting
+      if (s.language && window.i18n) {
+        const langSelect = document.getElementById('language-select');
+        if (langSelect) langSelect.value = s.language;
+        window.i18n.setLanguage(s.language);
+      }
       
       // Try to fetch OpenAI models if we have API key
       if (s.api_key && s.base_url) {
@@ -648,12 +794,6 @@
       return;
     }
     
-    if (!apiKey) {
-      statusEl.textContent = "❌ Please enter API Key first";
-      statusEl.style.display = "block";
-      return;
-    }
-    
     statusEl.textContent = "⏳ Fetching models...";
     statusEl.style.display = "block";
     await fetchOpenAIModels(apiKey, baseUrl);
@@ -692,6 +832,9 @@
       const max_output_tokens = parseInt(document.getElementById("max_output_tokens").value) || 800;
       const temperature = parseFloat(document.getElementById("temperature").value) || 0.7;
       const dev_mode = document.getElementById("dev_mode").checked;
+      const history_strategy = document.querySelector('input[name="history_strategy"]:checked').value;
+      const compression_threshold = parseInt(document.getElementById("compression_threshold").value) || 1000;
+      const compression_target = parseInt(document.getElementById("compression_target").value) || 200;
       
       // 获取当前设置，保留用户未修改的字段
       const current = await api("/settings");
@@ -704,7 +847,11 @@
         max_input_tokens,
         max_output_tokens,
         temperature,
-        dev_mode
+        dev_mode,
+        history_strategy,
+        compression_threshold,
+        compression_target,
+        language: window.i18n ? window.i18n.getLanguage() : 'zh'
       };
       
       // 只有用户新填写了API key才更新（避免保存虚假的"********"）
@@ -715,12 +862,7 @@
         updates.api_key = current.api_key;
       }
       
-      // 验证必要字段
-      if (!updates.base_url || !updates.model) {
-        status.textContent = "Please fill in Base URL and Model";
-        return;
-      }
-      
+      // 验证token和temperature范围（但不强制base_url和model）
       if (max_input_tokens < 100 || max_input_tokens > 128000) {
         status.textContent = "Max Input Tokens must be between 100 and 128000";
         return;
@@ -783,6 +925,13 @@
         const ti = out.token_info;
         statusText += ` • Tokens: prompt=${ti.prompt_tokens || 0}, completion=${ti.completion_tokens || 0}, total=${ti.total_tokens || 0}`;
         statusText += ` (est. input=${ti.estimated_input_tokens || 0}, system=${ti.system_prompt_tokens || 0})`;
+      }
+      if (devModeEnabled && out.compression_state) {
+        const cs = out.compression_state;
+        statusText += ` • History: ${out.history_strategy || 'unknown'}`;
+        if (cs.has_compressed) {
+          statusText += ` (compressed=${cs.compressed_tokens}t, msgs=${cs.current_messages})`;
+        }
       }
       
       meta.textContent = statusText;
@@ -2208,6 +2357,16 @@
   setTimeout(() => {
     loadMemory();
   }, 500);
+
+  // changeLanguage is defined globally in <head> so inline onchange works
+
+  // Listen for language changes to update dynamic content
+  window.addEventListener('languageChanged', (event) => {
+    const lang = event.detail.language;
+    console.log('[UI] Language changed event received:', lang);
+    // 更新页面上的动态内容
+    // 例如：更新 toast, 确认对话等
+  });
 </script>
 </body>
 </html>

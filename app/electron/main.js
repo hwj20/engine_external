@@ -7,6 +7,12 @@ const { initAutoUpdater, checkForUpdates } = require("./updater");
 
 log.info('App starting...');
 
+// Check for --skip-backend flag (used in dev mode when backend is started externally)
+const SKIP_BACKEND = process.argv.includes('--skip-backend');
+if (SKIP_BACKEND) {
+  log.info('--skip-backend flag detected, will not start/stop backend process');
+}
+
 const BACKEND_PORT = 8787;
 const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`;
 
@@ -312,8 +318,12 @@ app.whenReady().then(async () => {
   }
   log.info('=== End Diagnostics ===');
 
-  // Start the backend process first
-  startBackend();
+  if (!SKIP_BACKEND) {
+    // Start the backend process first
+    startBackend();
+  } else {
+    log.info('Skipping backend startup (--skip-backend)');
+  }
   
   // Create window immediately but show loading state
   const mainWindow = createWindow();
@@ -344,11 +354,11 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  stopBackend();
+  if (!SKIP_BACKEND) stopBackend();
 });
 
 app.on("will-quit", () => {
-  stopBackend();
+  if (!SKIP_BACKEND) stopBackend();
 });
 
 // IPC handlers for renderer process

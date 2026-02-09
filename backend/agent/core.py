@@ -28,6 +28,10 @@ class AgentCore:
         self.assembler = ContextAssembler(ContextBudget())
         # 会话历史记录：session_id -> List[{role, content}]
         self.conversation_history: Dict[str, List[Dict[str, str]]] = defaultdict(list)
+        # 压缩后的历史摘要：session_id -> str
+        self.compressed_history: Dict[str, str] = defaultdict(str)
+        # 压缩状态：session_id -> {compressing: bool, last_compressed_at: int}
+        self.compression_state: Dict[str, Dict[str, Any]] = defaultdict(lambda: {"compressing": False, "last_compressed_at": 0})
         print("[AgentCore] AgentCore initialized", flush=True)
 
     def _mode(self, user_message: str) -> str:
@@ -76,6 +80,119 @@ class AgentCore:
         logger.info(f"Selected {len(selected)} messages ({total_tokens} tokens) from conversation history")
         return selected
 
+    def _get_history_text(self, session_id: str, strategy: str, compression_threshold: int, compression_target: int, client: OpenAICompatibleClient) -> str:
+        """
+        根据策略获取对话历史文本。
+        - compression: 使用智能压缩，超过阈值时调用LLM压缩
+        - sliding_window: 使用传统滑动窗口
+        返回格式化的历史文本（不含"对话历史:"前缀）
+        """
+        if strategy == "compression":
+            return self._get_compressed_history_text(session_id, compression_threshold, compression_target, client)
+        else:
+            return self._get_sliding_window_history_text(session_id)
+
+    def _get_sliding_window_history_text(self, session_id: str) -> str:
+        """滑动窗口策略：返回最近的对话历史文本"""
+        history = self._get_conversation_history(session_id)
+        if not history:
+            return ""
+        lines = []
+        for msg in history:
+            role_label = "用户" if msg["role"] == "user" else "助手"
+            lines.append(f"{role_label}: {msg['content']}")
+        return "\n".join(lines)
+
+    def _get_compressed_history_text(self, session_id: str, threshold: int, target: int, client: OpenAICompatibleClient) -> str:
+        """
+        智能压缩策略：
+        1. 已压缩摘要 + 当前未压缩对话 = 完整历史
+        2. 当完整历史token数 > threshold 时，触发压缩
+        3. 压缩失败时降级到滑动窗口
+        """
+        compressed = self.compressed_history.get(session_id, "")
+        current_msgs = self.conversation_history.get(session_id, [])
+
+        if not current_msgs and not compressed:
+            return ""
+
+        # 格式化当前未压缩的对话
+        current_lines = []
+        for msg in current_msgs:
+            role_label = "用户" if msg["role"] == "user" else "助手"
+            current_lines.append(f"{role_label}: {msg['content']}")
+        current_text = "\n".join(current_lines)
+
+        # 组合完整历史
+        if compressed and current_text:
+            full_history = f"[之前的对话摘要]\n{compressed}\n\n[最近的对话]\n{current_text}"
+        elif compressed:
+            full_history = f"[之前的对话摘要]\n{compressed}"
+        else:
+            full_history = current_text
+
+        # 计算token数
+        total_tokens = approx_tokens(full_history)
+        print(f"[AgentCore] Compression check: {total_tokens} tokens (threshold: {threshold})", flush=True)
+
+        if total_tokens <= threshold:
+            # 未超过阈值，直接返回
+            return full_history
+
+        # 超过阈值，触发压缩
+        print(f"[AgentCore] Triggering compression: {total_tokens} > {threshold}, target: {target}", flush=True)
+        logger.info(f"Compression triggered: {total_tokens} tokens > threshold {threshold}")
+
+        if self.compression_state[session_id]["compressing"]:
+            print(f"[AgentCore] Compression already in progress, using sliding window fallback", flush=True)
+            return self._get_sliding_window_history_text(session_id)
+
+        self.compression_state[session_id]["compressing"] = True
+        try:
+            compressed_result = self._call_compression(full_history, target, client)
+            if compressed_result:
+                self.compressed_history[session_id] = compressed_result
+                # 清空当前对话历史（已被压缩进摘要）
+                self.conversation_history[session_id] = []
+                import time
+                self.compression_state[session_id]["last_compressed_at"] = int(time.time())
+                print(f"[AgentCore] Compression successful: {total_tokens} -> ~{approx_tokens(compressed_result)} tokens", flush=True)
+                logger.info(f"Compression successful: {total_tokens} -> ~{approx_tokens(compressed_result)} tokens")
+                return f"[对话摘要]\n{compressed_result}"
+            else:
+                print(f"[AgentCore] Compression returned empty, using sliding window fallback", flush=True)
+                return self._get_sliding_window_history_text(session_id)
+        except Exception as e:
+            print(f"[AgentCore] Compression failed: {e}, using sliding window fallback", flush=True)
+            logger.error(f"Compression failed: {e}, falling back to sliding window")
+            return self._get_sliding_window_history_text(session_id)
+        finally:
+            self.compression_state[session_id]["compressing"] = False
+
+    def _call_compression(self, history_text: str, target_tokens: int, client: OpenAICompatibleClient) -> str:
+        """调用LLM进行对话历史压缩"""
+        compression_prompt = f"""请将以下对话历史压缩到{target_tokens} tokens以内，要求：
+1. 保留用户的核心需求、偏好和重要决策
+2. 保留未完成的任务和关键上下文信息
+3. 保留重要的技术细节和代码逻辑
+4. 去除冗余的寒暄和重复内容
+5. 使用简洁但完整的表达方式
+
+对话历史：
+{history_text}
+
+压缩后的对话摘要："""
+
+        messages = [
+            {"role": "system", "content": "你是一个对话历史压缩助手。只输出压缩后的摘要，不要添加任何额外说明。"},
+            {"role": "user", "content": compression_prompt},
+        ]
+
+        print(f"[AgentCore] Calling LLM for compression (target: {target_tokens} tokens)...", flush=True)
+        # 使用较低的temperature确保压缩稳定
+        result, _ = client.chat(messages, max_tokens=target_tokens + 100, temperature=0.3)
+        return result.strip()
+
     def _add_to_history(self, session_id: str, role: str, content: str) -> None:
         """添加消息到会话历史"""
         self.conversation_history[session_id].append({"role": role, "content": content})
@@ -84,10 +201,14 @@ class AgentCore:
             self.conversation_history[session_id] = self.conversation_history[session_id][-(MAX_HISTORY_TURNS * 2):]
 
     def clear_history(self, session_id: str) -> None:
-        """清空会话历史"""
+        """清空会话历史（包括压缩摘要）"""
         if session_id in self.conversation_history:
             self.conversation_history[session_id] = []
-            print(f"[AgentCore] Cleared history for session: {session_id}", flush=True)
+        if session_id in self.compressed_history:
+            self.compressed_history[session_id] = ""
+        if session_id in self.compression_state:
+            self.compression_state[session_id] = {"compressing": False, "last_compressed_at": 0}
+        print(f"[AgentCore] Cleared history and compression state for session: {session_id}", flush=True)
 
     def chat(self, user_message: str, session_id: Optional[str] = None, memory_context: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         session_id = session_id or "default"
@@ -154,28 +275,73 @@ class AgentCore:
             max_input_tokens=max_input_tokens
         )
 
-        # 构建system prompt：优先使用用户自定义的system_prompt，否则使用DEFAULT_PERSONA
+        # === 构建消息（针对 prompt caching 优化） ===
+        # System prompt: 人格 + 核心记忆 + 日期（稳定内容，cache 命中率高）
+        # User message:  对话历史 + 动态记忆 + 当前输入（历史前半段 hit cache）
+
+        # 1) 组装 system prompt（稳定部分）
         custom_system_prompt = st.get("system_prompt", "").strip()
-        if custom_system_prompt:
-            # 用户提供了自定义prompt，与默认persona和state合并
-            system = custom_system_prompt + "\n\n" + pack["state"] + "\n\n" + "可用记忆卡片:\n" + "\n".join(pack["memory_cards"])
-            print(f"[AgentCore] Using custom system prompt (len={len(custom_system_prompt)})", flush=True)
-            logger.info(f"Using custom system prompt from settings")
-        else:
-            # 使用默认的persona和state
-            system = pack["persona"] + "\n\n" + pack["state"] + "\n\n" + "可用记忆卡片:\n" + "\n".join(pack["memory_cards"])
-            print(f"[AgentCore] Using default persona prompt", flush=True)
-            logger.info(f"Using default persona prompt")
-        
-        # 获取最近的对话历史（基于token预算的滑动窗口）
-        history = self._get_conversation_history(session_id)
-        history_count = len(history) // 2
-        print(f"[AgentCore] Including {history_count} turns of conversation history", flush=True)
-        
-        # 构建消息列表：system + history + current user message
-        messages = [{"role": "system", "content": system}]
-        messages.extend(history)
-        messages.append({"role": "user", "content": pack["user_input"]})
+        persona_part = custom_system_prompt if custom_system_prompt else pack["persona"]
+
+        # 核心记忆（稳定）: user_info + core_memories
+        core_memory_parts: List[str] = []
+        if memory_context:
+            if memory_context.get("user_info"):
+                core_memory_parts.append(memory_context["user_info"])
+            if memory_context.get("core_memories"):
+                core_memory_parts.append(memory_context["core_memories"])
+        core_memory_text = "\n".join(core_memory_parts) if core_memory_parts else ""
+
+        # 日期（一天内不变）
+        from datetime import datetime
+        date_text = f"当前日期: {datetime.now().strftime('%Y-%m-%d %A')}"
+
+        system_sections = [persona_part, pack["state"]]
+        if core_memory_text:
+            system_sections.append("核心记忆:\n" + core_memory_text)
+        system_sections.append(date_text)
+        system = "\n\n".join(s for s in system_sections if s)
+
+        print(f"[AgentCore] System prompt assembled (persona + core memory + date)", flush=True)
+        logger.info(f"System prompt: persona={'custom' if custom_system_prompt else 'default'}, core_memory={len(core_memory_parts)} sections")
+
+        # 2) 组装 user message（对话历史 + 动态记忆 + 当前输入）
+        #    对话历史放在最前面，前半段内容稳定 → cache 命中
+        history_strategy = st.get("history_strategy", "compression")
+        compression_threshold = st.get("compression_threshold", 1000)
+        compression_target = st.get("compression_target", 200)
+        print(f"[AgentCore] History strategy: {history_strategy}, threshold: {compression_threshold}, target: {compression_target}", flush=True)
+
+        history_text = self._get_history_text(
+            session_id, history_strategy, compression_threshold, compression_target, client
+        )
+
+        user_sections: List[str] = []
+
+        # 对话历史（放最前，利用 prefix caching）
+        if history_text:
+            user_sections.append("对话历史:\n" + history_text)
+
+        # 动态记忆（relevant_memories，每次可能不同）
+        dynamic_memory_parts: List[str] = []
+        if memory_context and memory_context.get("relevant_memories"):
+            dynamic_memory_parts.append(memory_context["relevant_memories"])
+        # 如果没有 memory_context，用旧的 memory_cards 中非核心部分作为动态记忆
+        if not memory_context and pack["memory_cards"]:
+            dynamic_memory_parts.extend(pack["memory_cards"])
+        if dynamic_memory_parts:
+            user_sections.append("相关记忆:\n" + "\n".join(dynamic_memory_parts))
+
+        # 当前用户输入（放最后）
+        user_sections.append(pack["user_input"])
+
+        user_content = "\n\n".join(user_sections)
+
+        # 构建最终消息列表：只有 system + user 两条
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user_content},
+        ]
 
         # 从设置中获取max_output_tokens，如果未设置则使用默认值
         max_output_tokens = st.get("max_output_tokens", 800)
@@ -236,6 +402,12 @@ class AgentCore:
             "mode": mode,
             "used_memory_cards": pack["memory_cards"],
             "token_info": token_info,
+            "history_strategy": history_strategy,
+            "compression_state": {
+                "has_compressed": bool(self.compressed_history.get(session_id, "")),
+                "compressed_tokens": approx_tokens(self.compressed_history.get(session_id, "")),
+                "current_messages": len(self.conversation_history.get(session_id, [])),
+            },
         }
 
     def _light_memory_write(self, user_message: str) -> None:

@@ -41,7 +41,9 @@
         },
         "files": [
             "electron/**/*",
-            "renderer/**/*"
+            "renderer/**/*",
+            "i18n.js",
+            "locales/**/*"
         ],
         "extraResources": [
             {

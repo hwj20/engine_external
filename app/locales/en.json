@@ -1,0 +1,90 @@
+{
+  "header": {
+    "title": "Engine External",
+    "badge_local": "Local-only",
+    "badge_backend": "Backend: 127.0.0.1:8787",
+    "badge_version": "Version",
+    "badge_tip": "Tip: Start backend first, then open chat.",
+    "language_en": "English",
+    "language_zh": "中文"
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Enter OpenAI-compatible base_url / api_key / model (stored locally only).",
+    "base_url": "Base URL (e.g. https://api.openai.com)",
+    "api_key": "API Key (leave empty to keep existing key)",
+    "model": "Model",
+    "model_select": "-- Select Model --",
+    "model_loading": "Loading models from OpenAI...",
+    "model_custom": "Custom Model...",
+    "custom_model_placeholder": "Enter custom model name",
+    "refresh_models": "Refresh Models",
+    "max_output_tokens": "Max Output Tokens (response limit)",
+    "temperature": "Temperature (0.0 = deterministic, 1.0 = creative)",
+    "dev_mode": "Developer Mode (show token usage)",
+    "dev_mode_label": "Developer Mode (show token usage)",
+    "history_strategy": "Conversation History Strategy",
+    "compression": "Compression (Recommended) — Automatically compress old conversations and preserve core information",
+    "compression_threshold": "Compression Threshold (tokens, trigger compression when history exceeds this value)",
+    "compression_target": "Compression Target (tokens, target size after compression)",
+    "sliding_window": "Sliding Window (Traditional) — Truncate early conversations",
+    "max_input_tokens": "Max Input Tokens (context limit)",
+    "system_prompt_tokens": "System prompt uses",
+    "save": "Save",
+    "test_backend": "Test Backend",
+    "loaded": "Loaded settings (api_key hidden)"
+  },
+  "system_prompt": {
+    "title": "System Prompt",
+    "edit_button": "Edit System Prompt",
+    "description": "Choose an AI personality preset or create a custom one",
+    "personality": "AI Personality",
+    "loading": "Loading personalities...",
+    "content": "AI Personality Content",
+    "name": "Personality Name",
+    "name_placeholder": "e.g., My Friendly Bot",
+    "save": "Save",
+    "clear": "Clear"
+  },
+  "chat_history": {
+    "title": "Chat History",
+    "button": "Load Conversation History",
+    "search_placeholder": "Search conversations...",
+    "no_conversations": "No conversations yet",
+    "new_conversation": "New Conversation",
+    "empty": "No conversations",
+    "upload_zip_title": "Upload a zip data package to import conversations",
+    "reload_title": "Reload from conversations.json"
+  },
+  "memory": {
+    "title": "Memory",
+    "button": "Open Memory Window",
+    "new_memory": "Enter memory content...",
+    "importance": "Importance",
+    "auto_core_title": "Let AI select important memories for Core"
+  },
+  "user_profile": {
+    "title": "User Profile",
+    "name": "Name / Nickname",
+    "name_placeholder": "e.g. Alice, John...",
+    "age": "Age",
+    "age_placeholder": "e.g. 25",
+    "gender": "Gender",
+    "gender_not_specified": "-- Not specified --",
+    "gender_male": "Male",
+    "gender_female": "Female",
+    "gender_other": "Other",
+    "occupation": "Occupation",
+    "occupation_placeholder": "e.g. Software Engineer...",
+    "location": "Location",
+    "location_placeholder": "e.g. Beijing, China...",
+    "bio": "Short Bio",
+    "bio_placeholder": "Tell me about yourself...",
+    "save": "Save Profile"
+  },
+  "main_chat": {
+    "message_placeholder": "Say something... (start backend first)",
+    "send": "Send"
+  },
+  "token_usage": "Token Usage"
+}

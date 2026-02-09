@@ -224,6 +224,8 @@ class ChatResp(BaseModel):
     mode: str
     used_memory_cards: list[str]
     token_info: Optional[Dict[str, Any]] = None
+    history_strategy: Optional[str] = None
+    compression_state: Optional[Dict[str, Any]] = None
 
 class SettingsReq(BaseModel):
     provider: str = "openai_compatible"
@@ -235,6 +237,10 @@ class SettingsReq(BaseModel):
     max_output_tokens: Optional[int] = 800
     temperature: Optional[float] = 0.7
     dev_mode: Optional[bool] = False
+    history_strategy: Optional[str] = "compression"
+    compression_threshold: Optional[int] = 1000
+    compression_target: Optional[int] = 200
+    language: Optional[str] = "zh"
 
 class ModelUpdateReq(BaseModel):
     model: str
@@ -278,6 +284,14 @@ def set_settings(req: SettingsReq):
         current["temperature"] = req.temperature
     if req.dev_mode is not None:
         current["dev_mode"] = req.dev_mode
+    if req.history_strategy is not None:
+        current["history_strategy"] = req.history_strategy
+    if req.compression_threshold is not None:
+        current["compression_threshold"] = req.compression_threshold
+    if req.compression_target is not None:
+        current["compression_target"] = req.compression_target
+    if req.language is not None:
+        current["language"] = req.language
     
     # 验证token限制
     if current["max_input_tokens"] and (current["max_input_tokens"] < 100 or current["max_input_tokens"] > 128000):
@@ -394,12 +408,32 @@ def fetch_openai_models():
                 "response": data
             }
         
-        print(f"[MODELS] Successfully fetched {len(models)} models", flush=True)
+        # Filter to only include models with 'gpt' in the name, excluding 'audio' and 'tts' models (case-insensitive)
+        filtered_models = [
+            m for m in models 
+            if 'gpt' in m.get('id', '').lower() 
+            and 'audio' not in m.get('id', '').lower()
+            and 'tts' not in m.get('id', '').lower()
+        ]
+        
+        # Sort models: gpt-4o models first, then others
+        def sort_key(model):
+            model_id = model.get('id', '').lower()
+            # gpt-4o gets priority (0), others get secondary priority (1)
+            priority = 0 if 'gpt-4o' in model_id else 1
+            return (priority, model_id)
+        
+        filtered_models.sort(key=sort_key)
+        
+        original_count = len(models)
+        filtered_count = len(filtered_models)
+        
+        print(f"[MODELS] Successfully fetched {original_count} models, filtered to {filtered_count} GPT models (excluding audio/tts)", flush=True)
         
         return {
             "success": True,
-            "models": models,
-            "count": len(models)
+            "models": filtered_models,
+            "count": filtered_count
         }
         
     except requests.exceptions.Timeout:

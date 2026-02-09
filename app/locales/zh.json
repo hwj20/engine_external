@@ -1,0 +1,90 @@
+{
+  "header": {
+    "title": "引擎外部",
+    "badge_local": "仅本地",
+    "badge_backend": "后端: 127.0.0.1:8787",
+    "badge_version": "版本",
+    "badge_tip": "提示：先启动后端，然后打开聊天。",
+    "language_en": "English",
+    "language_zh": "中文"
+  },
+  "settings": {
+    "title": "设置",
+    "description": "输入 OpenAI 兼容的 base_url / api_key / model（仅存储在本地）。",
+    "base_url": "Base URL (例如 https://api.openai.com)",
+    "api_key": "API Key（留空以保持现有密钥）",
+    "model": "模型",
+    "model_select": "-- 选择模型 --",
+    "model_loading": "正在从 OpenAI 加载模型...",
+    "model_custom": "自定义模型...",
+    "custom_model_placeholder": "输入自定义模型名称",
+    "refresh_models": "刷新模型",
+    "max_output_tokens": "最大输出 Token 数（响应限制）",
+    "temperature": "温度（0.0 = 确定性，1.0 = 创意性）",
+    "dev_mode": "开发者模式（显示 Token 使用情况）",
+    "dev_mode_label": "开发者模式（显示 Token 使用情况）",
+    "history_strategy": "对话历史策略",
+    "compression": "智能压缩（推荐）— 自动压缩旧对话，保留核心信息",
+    "compression_threshold": "压缩阈值（token 数，历史超过此值时触发压缩）",
+    "compression_target": "压缩目标（token 数，压缩后的目标大小）",
+    "sliding_window": "滑动窗口（传统）— 截断早期对话",
+    "max_input_tokens": "最大输入 Token 数（上下文限制）",
+    "system_prompt_tokens": "系统提示使用",
+    "save": "保存",
+    "test_backend": "测试后端",
+    "loaded": "已加载设置（api_key 隐藏）"
+  },
+  "system_prompt": {
+    "title": "系统提示",
+    "edit_button": "编辑系统提示",
+    "description": "选择 AI 人格预设或创建自定义人格",
+    "personality": "AI 人格",
+    "loading": "正在加载人格...",
+    "content": "AI 人格内容",
+    "name": "人格名称",
+    "name_placeholder": "例如，我的友好机器人",
+    "save": "保存",
+    "clear": "清空"
+  },
+  "chat_history": {
+    "title": "聊天历史",
+    "button": "加载对话历史",
+    "search_placeholder": "搜索对话...",
+    "no_conversations": "还没有对话",
+    "new_conversation": "新建对话",
+    "empty": "无对话",
+    "upload_zip_title": "上传 zip 数据包以导入对话",
+    "reload_title": "从 conversations.json 重新加载"
+  },
+  "memory": {
+    "title": "记忆",
+    "button": "打开记忆窗口",
+    "new_memory": "输入记忆内容...",
+    "importance": "重要性",
+    "auto_core_title": "让AI为核心选择重要记忆"
+  },
+  "user_profile": {
+    "title": "用户资料",
+    "name": "名称 / 昵称",
+    "name_placeholder": "例如 Alice、John...",
+    "age": "年龄",
+    "age_placeholder": "例如 25",
+    "gender": "性别",
+    "gender_not_specified": "-- 未指定 --",
+    "gender_male": "男性",
+    "gender_female": "女性",
+    "gender_other": "其他",
+    "occupation": "职业",
+    "occupation_placeholder": "例如 软件工程师...",
+    "location": "位置",
+    "location_placeholder": "例如 北京，中国...",
+    "bio": "个人简介",
+    "bio_placeholder": "请告诉我关于你的信息...",
+    "save": "保存资料"
+  },
+  "main_chat": {
+    "message_placeholder": "说点什么...(先启动后端)",
+    "send": "发送"
+  },
+  "token_usage": "Token 使用情况"
+}
