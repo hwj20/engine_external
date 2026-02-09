@@ -83,13 +83,27 @@ async function getLatestRelease() {
   try {
     const release = await fetchJSON(url);
     
-    // Find the Windows zip asset
-    const asset = release.assets.find(a => 
-      a.name.includes('win') && a.name.endsWith('.zip')
-    );
+    // Determine platform-specific asset pattern
+    let assetPattern;
+    const platform = process.platform;
+    
+    if (platform === 'win32') {
+      assetPattern = (a) => a.name.includes('win') && (a.name.endsWith('.exe') || a.name.endsWith('.zip'));
+    } else if (platform === 'darwin') {
+      assetPattern = (a) => (a.name.endsWith('.dmg') || a.name.endsWith('.zip')) && !a.name.includes('win');
+    } else if (platform === 'linux') {
+      assetPattern = (a) => (a.name.endsWith('.AppImage') || a.name.endsWith('.deb')) && !a.name.includes('mac') && !a.name.includes('win');
+    } else {
+      console.log('[Updater] Unknown platform:', platform);
+      return null;
+    }
+    
+    // Find the appropriate asset
+    const asset = release.assets.find(assetPattern);
 
     if (!asset) {
-      console.log('[Updater] No Windows asset found in release');
+      console.log(`[Updater] No asset found for platform ${platform} in release`);
+      console.log('[Updater] Available assets:', release.assets.map(a => a.name).join(', '));
       return null;
     }
 
@@ -197,13 +211,17 @@ async function promptUpdate(updateInfo) {
  * Initialize auto-updater
  * Call this when the app is ready
  */
-async function initAutoUpdater() {
+async function initAutoUpdater(mainWindow = null) {
   // Wait a bit before checking (let the app load first)
   setTimeout(async () => {
     try {
       const updateInfo = await checkForUpdates(true);
       if (updateInfo.updateAvailable) {
         await promptUpdate(updateInfo);
+        // Notify renderer process if window exists
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('update-available', updateInfo);
+        }
       }
     } catch (error) {
       console.error('[Updater] Error during update check:', error);

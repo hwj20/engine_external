@@ -2,13 +2,9 @@ const { app, BrowserWindow, shell, ipcMain, Menu } = require("electron");
 const path = require("path");
 const { spawn } = require("child_process");
 const http = require("http");
-const { autoUpdater } = require("electron-updater");
 const log = require("electron-log");
 const { initAutoUpdater, checkForUpdates } = require("./updater");
 
-// Configure electron-updater logging
-autoUpdater.logger = log;
-autoUpdater.logger.transports.file.level = 'info';
 log.info('App starting...');
 
 const BACKEND_PORT = 8787;
@@ -329,12 +325,14 @@ app.whenReady().then(async () => {
   // Reload the page once backend is ready so the frontend can connect
   mainWindow.webContents.reload();
   
-  // Initialize auto-updater with electron-updater
+  // Initialize custom updater (works with standard GitHub releases)
   log.info('Initializing auto-updater...');
-  autoUpdater.checkForUpdatesAndNotify();
+  initAutoUpdater(mainWindow);
   
-  // Also initialize custom updater as fallback
-  initAutoUpdater();
+  // Periodically check for updates (every 6 hours)
+  setInterval(() => {
+    initAutoUpdater(mainWindow);
+  }, 6 * 60 * 60 * 1000);
   
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -360,30 +358,4 @@ ipcMain.handle('check-for-updates', async () => {
 
 ipcMain.handle('get-app-version', () => {
   return require('../package.json').version;
-});
-
-// electron-updater events
-autoUpdater.on('checking-for-update', () => {
-  log.info('Checking for updates...');
-});
-
-autoUpdater.on('update-available', (info) => {
-  log.info('Update available:', info.version);
-});
-
-autoUpdater.on('update-not-available', (info) => {
-  log.info('Already on latest version');
-});
-
-autoUpdater.on('error', (err) => {
-  log.error('Update error:', err);
-});
-
-autoUpdater.on('download-progress', (progressObj) => {
-  log.info(`Download progress: ${progressObj.percent.toFixed(2)}%`);
-});
-
-autoUpdater.on('update-downloaded', (info) => {
-  log.info('Update downloaded:', info.version);
-  autoUpdater.quitAndInstall();
 });
