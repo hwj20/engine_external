@@ -202,10 +202,53 @@ function createWindow() {
 
   // Create application menu with update check
   const menuTemplate = [
+    ...(process.platform === 'darwin' ? [{
+      label: app.name,
+      submenu: [
+        {
+          label: `About ${app.name}`,
+          click: () => {
+            const pkg = require('../package.json');
+            const { dialog } = require('electron');
+            dialog.showMessageBox(win, {
+              type: 'info',
+              title: `About ${app.name}`,
+              message: 'AURORA Local Agent MVP',
+              detail: `Version: ${pkg.version}\n\nA local AI assistant with memory capabilities.`
+            });
+          }
+        },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    }] : []),
     {
       label: 'File',
       submenu: [
-        { role: 'quit' }
+        ...(process.platform !== 'darwin' ? [{ role: 'quit' }] : [])
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        ...(process.platform === 'darwin' ? [
+          { role: 'pasteAndMatchStyle' },
+          { role: 'delete' },
+          { type: 'separator' },
+          { role: 'selectAll' }
+        ] : [{ type: 'separator' }, { role: 'selectAll' }])
       ]
     },
     {
@@ -216,19 +259,21 @@ function createWindow() {
           click: () => checkForUpdates(false)
         },
         { type: 'separator' },
-        {
-          label: 'About',
-          click: () => {
-            const pkg = require('../package.json');
-            const { dialog } = require('electron');
-            dialog.showMessageBox(win, {
-              type: 'info',
-              title: 'About AURORA',
-              message: 'AURORA Local Agent MVP',
-              detail: `Version: ${pkg.version}\n\nA local AI assistant with memory capabilities.`
-            });
+        ...(process.platform !== 'darwin' ? [
+          {
+            label: 'About',
+            click: () => {
+              const pkg = require('../package.json');
+              const { dialog } = require('electron');
+              dialog.showMessageBox(win, {
+                type: 'info',
+                title: 'About AURORA',
+                message: 'AURORA Local Agent MVP',
+                detail: `Version: ${pkg.version}\n\nA local AI assistant with memory capabilities.`
+              });
+            }
           }
-        }
+        ] : [])
       ]
     }
   ];
