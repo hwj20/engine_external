@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🚚 ChatGPT 搬家攻略
+# 🚚 ChatGPT 搬家攻略（正式版）
 
 [English Version](./TUTORIAL_EN.md)
 
@@ -19,17 +19,10 @@
 
 ### Step 1: 安装并测试
 
-1. **下载并解压**，两种启动方式任选：
-* **方式 A（推荐）：** 运行 `Start-AURORA.bat`（⚠️ 注意不是 .exe）。
-* **方式 B：** 先运行 `Engine-External-backend.exe`（保持窗口开启），再运行 `Engine External.exe`。
-
+1. **下载并安装**
 
 2. **配置 API Key**
-* 打开设置，输入你的 OpenAI API Key。
-* 选择模型和上下文长度。
-* **点击保存**（重要！）。
-* 点击 Model List 下的 Refresh，看到模型列表返回即成功。
-
+<img width="1764" height="1364" alt="4baa00b91209d27374ef95051ab60de5" src="https://github.com/user-attachments/assets/e92fcdeb-8052-4140-aeca-17c9ea5a86bc" />
 
 3. **发条消息试试**，收到回复就 OK 了 ✅
 
@@ -45,68 +38,18 @@
 4. 等邮件，下载 zip 文件。
 
 #### 2.2 导入到 Local
-
-1. 解压 zip 文件。
-2. 把解压出的文件夹重命名为 `data`。
-3. 复制到以下路径：
-```
-C:\Users\你的用户名\AppData\Local\AURORA-Local-Agent\personal_info\
-
-```
-
-
-*(注意：`AppData` 是隐藏文件夹，找不到的话需要在文件夹选项里开启“显示隐藏文件”。)*
-4. 在软件中点击 **加载历史对话**。
-
 > 💡 **建议：** 把原始导出文件备份到云端，以防万一。
+
+
+<img width="1781" height="1408" alt="be1364ba281407aa609895c762d85809" src="https://github.com/user-attachments/assets/602c9b87-f690-4f9a-9550-36654f0e95f1" />
+
 
 ---
 
 ### Step 3: 迁移 Memory（记忆）
 
-这一步需要手动处理，但只用做一次。
+<img width="1766" height="1407" alt="8711d42e05b32e40ce15c2441f880c50" src="https://github.com/user-attachments/assets/32e652f5-5e0c-4023-bcd9-7b40763e016f" />
 
-#### 3.1 复制 Memory
-
-1. ChatGPT → **Settings** → **Personalization** → **Memory**。
-2. 你会看到类似这样的列表：
-```text
-User's name is 小明.
-
-User has a dog named 豆豆.
-
-```
-
-
-3. 全部复制到记事本。
-
-#### 3.2 处理换行符（关键！）
-
-ChatGPT 的 memory 格式有点问题：每条记忆之间有空行，但有些记忆内部也有换行。我们需要把记忆**内部**的换行删掉。
-
-**处理前：**
-
-```text
-User has a dog named 豆豆,
-a golden retriever,
-3 years old.
-
-```
-
-**处理后：**
-
-```text
-User has a dog named 豆豆, a golden retriever, 3 years old.
-
-```
-
-**简单说：一条记忆 = 一行**，被拆开的要合并回去。
-
-#### 3.3 导入 Memory
-
-1. 打开软件的 Memory 页面。
-2. 在底部的 Add 窗口粘贴处理好的内容。
-3. 点击 **Add**。
 
 ---
 
@@ -123,10 +66,8 @@ User has a dog named 豆豆, a golden retriever, 3 years old.
 ---
 
 ### Step 5: 配置 System Prompt
+<img width="1792" height="1409" alt="850dd808e3f4052cd615452feb1d563d" src="https://github.com/user-attachments/assets/3228e697-c15d-4362-8de4-cebd14f09cca" />
 
-有个变成 **Feature** 的 Bug 是它加载不了预设的模板...
-
-* 所以用户暂时需要自己设置 System Prompt。
 
 ---
 
@@ -151,16 +92,10 @@ A: 取决于你设置的 max token。超出的上下文会被截断。我们正�
 **Q: 数据安全吗？**
 A: 所有数据保存在你本地，不经过任何第三方服务器。只有 API 调用会发送到 OpenAI。另外，软件不会修改你上传的原始数据，聊天记录会单独保存。
 
-**Q: 为什么要手动处理换行？**
-A: ChatGPT 网页端的导出格式问题，后续我们会做自动处理。
 
 ---
 
 ### 🐛 遇到问题？
 
-这是测试版，肯定有 Bug 😅
-
-1. 出问题先等 30 秒。
-2. 不行就重启软件。
-3. 还不行就来 Issue 区找我。
+Windows版我会维护，Mac版有人反馈我就会维护
 
