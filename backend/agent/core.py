@@ -19,6 +19,8 @@ DEFAULT_PERSONA = """你是一个终身陪伴型AI助手。风格：亲密、聪
 MAX_HISTORY_TURNS = 10
 # 对话历史的token预算（用于滑动窗口）
 HISTORY_TOKEN_BUDGET = 1200  # 约300条消息的容量（中文平均6字/消息）
+# 压缩时保留的对话轮数（保持最近的上下文，避免模型漂移）
+COMPRESSION_CONTEXT_RETENTION_TURNS = 2  # 保留最后2轮对话（每轮=user+assistant）
 
 class AgentCore:
     def __init__(self, memory: MemoryStore, settings: SettingsStore):
@@ -105,10 +107,11 @@ class AgentCore:
 
     def _get_compressed_history_text(self, session_id: str, threshold: int, target: int, client: OpenAICompatibleClient) -> str:
         """
-        智能压缩策略：
+        智能压缩策略（改进版）：
         1. 已压缩摘要 + 当前未压缩对话 = 完整历史
         2. 当完整历史token数 > threshold 时，触发压缩
-        3. 压缩失败时降级到滑动窗口
+        3. 压缩时保留最后N轮对话作为热上下文，避免模型漂移
+        4. 压缩失败时降级到滑动窗口
         """
         compressed = self.compressed_history.get(session_id, "")
         current_msgs = self.conversation_history.get(session_id, [])
@@ -116,32 +119,53 @@ class AgentCore:
         if not current_msgs and not compressed:
             return ""
 
-        # 格式化当前未压缩的对话
-        current_lines = []
-        for msg in current_msgs:
-            role_label = "用户" if msg["role"] == "user" else "助手"
-            current_lines.append(f"{role_label}: {msg['content']}")
-        current_text = "\n".join(current_lines)
+        # 分离消息：保留最后的热上下文，其余用于压缩
+        retention_count = COMPRESSION_CONTEXT_RETENTION_TURNS * 2  # 每轮包含user+assistant
+        if len(current_msgs) > retention_count:
+            msgs_to_compress = current_msgs[:-retention_count]
+            msgs_to_retain = current_msgs[-retention_count:]
+        else:
+            msgs_to_compress = []
+            msgs_to_retain = current_msgs
 
-        # 组合完整历史
-        if compressed and current_text:
-            full_history = f"[之前的对话摘要]\n{compressed}\n\n[最近的对话]\n{current_text}"
+        # 格式化用于压缩的对话
+        compress_lines = []
+        for msg in msgs_to_compress:
+            role_label = "用户" if msg["role"] == "user" else "助手"
+            compress_lines.append(f"{role_label}: {msg['content']}")
+        compress_text = "\n".join(compress_lines)
+
+        # 格式化保留的热上下文对话
+        retain_lines = []
+        for msg in msgs_to_retain:
+            role_label = "用户" if msg["role"] == "user" else "助手"
+            retain_lines.append(f"{role_label}: {msg['content']}")
+        retain_text = "\n".join(retain_lines)
+
+        # 组合完整历史用于计算token数
+        if compressed and compress_text:
+            full_history = f"[之前的对话摘要]\n{compressed}\n\n[早期对话]\n{compress_text}"
         elif compressed:
             full_history = f"[之前的对话摘要]\n{compressed}"
         else:
-            full_history = current_text
+            full_history = compress_text
 
         # 计算token数
         total_tokens = approx_tokens(full_history)
-        print(f"[AgentCore] Compression check: {total_tokens} tokens (threshold: {threshold})", flush=True)
+        print(f"[AgentCore] Compression check: {total_tokens} tokens (retained: {len(msgs_to_retain)} msgs, threshold: {threshold})", flush=True)
 
         if total_tokens <= threshold:
-            # 未超过阈值，直接返回
-            return full_history
+            # 未超过阈值，直接返回完整历史（摘要 + 热上下文）
+            result_parts = []
+            if compressed:
+                result_parts.append(f"[之前的对话摘要]\n{compressed}")
+            if retain_text:
+                result_parts.append(f"[最近的对话]\n{retain_text}")
+            return "\n\n".join(result_parts)
 
         # 超过阈值，触发压缩
-        print(f"[AgentCore] Triggering compression: {total_tokens} > {threshold}, target: {target}", flush=True)
-        logger.info(f"Compression triggered: {total_tokens} tokens > threshold {threshold}")
+        print(f"[AgentCore] Triggering compression: {total_tokens} > {threshold}, target: {target}, retaining {len(msgs_to_retain)} messages", flush=True)
+        logger.info(f"Compression triggered: {total_tokens} tokens > threshold {threshold}, retaining {len(msgs_to_retain)} recent messages")
 
         if self.compression_state[session_id]["compressing"]:
             print(f"[AgentCore] Compression already in progress, using sliding window fallback", flush=True)
@@ -149,16 +173,22 @@ class AgentCore:
 
         self.compression_state[session_id]["compressing"] = True
         try:
+            # 只压缩早期部分（不包括热上下文）
             compressed_result = self._call_compression(full_history, target, client)
             if compressed_result:
                 self.compressed_history[session_id] = compressed_result
-                # 清空当前对话历史（已被压缩进摘要）
-                self.conversation_history[session_id] = []
+                # 保留最后的热上下文消息，清空早期部分
+                self.conversation_history[session_id] = msgs_to_retain
                 import time
                 self.compression_state[session_id]["last_compressed_at"] = int(time.time())
-                print(f"[AgentCore] Compression successful: {total_tokens} -> ~{approx_tokens(compressed_result)} tokens", flush=True)
-                logger.info(f"Compression successful: {total_tokens} -> ~{approx_tokens(compressed_result)} tokens")
-                return f"[对话摘要]\n{compressed_result}"
+                print(f"[AgentCore] Compression successful: {total_tokens} -> ~{approx_tokens(compressed_result)} tokens, retained {len(msgs_to_retain)} messages", flush=True)
+                logger.info(f"Compression successful: {total_tokens} -> ~{approx_tokens(compressed_result)} tokens, retained {len(msgs_to_retain)} recent messages")
+                
+                # 返回压缩后的历史：摘要 + 保留的热上下文
+                result_parts = [f"[对话摘要]\n{compressed_result}"]
+                if retain_text:
+                    result_parts.append(f"[最近的对话]\n{retain_text}")
+                return "\n\n".join(result_parts)
             else:
                 print(f"[AgentCore] Compression returned empty, using sliding window fallback", flush=True)
                 return self._get_sliding_window_history_text(session_id)

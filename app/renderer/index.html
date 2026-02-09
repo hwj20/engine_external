@@ -24,7 +24,18 @@
     button { cursor:pointer; border-radius: 12px; border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.08); color:#e7eefc; padding: 10px 12px; }
     button:hover { background: rgba(255,255,255,.12); }
     .chatlog { flex:1; overflow:auto; display:flex; flex-direction:column; gap:10px; }
-    .bubble { padding: 10px 12px; border-radius: 14px; border:1px solid rgba(255,255,255,.10); white-space: pre-wrap; }
+    .bubble { padding: 10px 12px; border-radius: 14px; border:1px solid rgba(255,255,255,.10); white-space: pre-wrap; position: relative; transition: all 0.2s; }
+    .bubble:hover { border-color: rgba(255,255,255,.20); }
+    .bubble-actions { display: none; position: absolute; top: 8px; right: 8px; gap: 4px; z-index: 10; }
+    .bubble:hover .bubble-actions { display: flex; }
+    .bubble-edit-btn, .bubble-save-btn, .bubble-cancel-btn { padding: 4px 8px; font-size: 11px; border-radius: 6px; border: none; cursor: pointer; background: rgba(80,120,255,.3); color: #e7eefc; }
+    .bubble-edit-btn:hover { background: rgba(80,120,255,.5); }
+    .bubble-save-btn { background: rgba(100,200,100,.3); }
+    .bubble-save-btn:hover { background: rgba(100,200,100,.5); }
+    .bubble-cancel-btn { background: rgba(255,100,100,.3); }
+    .bubble-cancel-btn:hover { background: rgba(255,100,100,.5); }
+    .bubble-content { white-space: pre-wrap; word-break: break-word; }
+    .bubble-textarea { width: 100%; min-height: 60px; border-radius: 8px; border: 1px solid rgba(80,120,255,.3); background: rgba(0,0,0,.3); color: #e7eefc; padding: 8px; font-family: inherit; font-size: inherit; resize: vertical; outline: none; margin-bottom: 8px; }
     .u { background: rgba(80,120,255,.12); align-self:flex-end; max-width: 76%; }
     .a { background: rgba(255,255,255,.06); align-self:flex-start; max-width: 76%; }
     .muted { opacity:.75; font-size:12px; }
@@ -373,6 +384,7 @@
           <!-- Search bar and controls -->
           <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
             <input id="conversation-search" type="text" data-i18n="chat_history.search_placeholder" data-i18n-placeholder style="flex:1; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px; outline:none;" />
+            <button id="new-conversation-btn" data-i18n-title="chat_history.new_conversation_title" title="Start a new conversation" style="padding:10px 12px; font-size:12px; background:rgba(100,200,100,.2); border-color:rgba(100,200,100,.4); white-space:nowrap;">➕ New Chat</button>
             <button id="upload-conversation-zip-btn" data-i18n-title="chat_history.upload_zip_title" title="Upload a zip data package to import conversations" style="padding:10px 12px; font-size:12px; background:rgba(80,200,120,.2); border-color:rgba(80,200,120,.4); white-space:nowrap;">📦 Upload Zip</button>
             <button id="reload-conversations-btn" data-i18n-title="chat_history.reload_title" title="Reload from conversations.json" style="padding:10px 12px; font-size:12px; background:rgba(255,180,80,.2); border-color:rgba(255,180,80,.4); white-space:nowrap;">🔄 Reload</button>
             <input type="file" id="zip-file-input" accept=".zip" style="display:none;" />
@@ -556,10 +568,43 @@
   };
 
 
+  // Message index for tracking
+  let messageIndex = 0;
+  const messageMap = new Map(); // Map of messageId -> {role, content, element}
+  
   function addBubble(text, who, tokenInfo = null) {
     const div = document.createElement("div");
     div.className = "bubble " + (who === "user" ? "u" : "a");
-    div.textContent = text;
+    const messageId = `msg_${messageIndex++}`;
+    div.dataset.messageId = messageId;
+    
+    // Create wrapper for content and actions
+    const contentDiv = document.createElement("div");
+    contentDiv.className = "bubble-content";
+    contentDiv.textContent = text;
+    div.appendChild(contentDiv);
+    
+    // Add edit button
+    const actionsDiv = document.createElement("div");
+    actionsDiv.className = "bubble-actions";
+    
+    const editBtn = document.createElement("button");
+    editBtn.className = "bubble-edit-btn";
+    editBtn.textContent = "✏️ Edit";
+    editBtn.onclick = (e) => {
+      e.stopPropagation();
+      startEditMessage(messageId, div);
+    };
+    actionsDiv.appendChild(editBtn);
+    div.appendChild(actionsDiv);
+    
+    // Store message info
+    messageMap.set(messageId, {
+      role: who,
+      content: text,
+      element: div,
+      tokenInfo: tokenInfo
+    });
     
     // 如果是assistant消息且开启了开发者模式，显示token详情
     if (who === "assistant" && devModeEnabled && tokenInfo) {
@@ -573,6 +618,140 @@
     
     chatlog.appendChild(div);
     chatlog.scrollTop = chatlog.scrollHeight;
+  }
+  
+  // Start editing a message
+  function startEditMessage(messageId, bubbleEl) {
+    const msgData = messageMap.get(messageId);
+    if (!msgData) return;
+    
+    // Create textarea for editing
+    const textarea = document.createElement('textarea');
+    textarea.className = 'bubble-textarea';
+    textarea.value = msgData.content;
+    
+    // Replace content with textarea
+    bubbleEl.innerHTML = '';
+    bubbleEl.appendChild(textarea);
+    
+    // Create save/cancel buttons
+    const btnDiv = document.createElement('div');
+    btnDiv.style.cssText = 'display: flex; gap: 6px; margin-top: 6px;';
+    
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'bubble-save-btn';
+    saveBtn.textContent = '💾 Save';
+    saveBtn.onclick = () => saveEditMessage(messageId, textarea.value);
+    
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'bubble-cancel-btn';
+    cancelBtn.textContent = '✕ Cancel';
+    cancelBtn.onclick = () => cancelEditMessage(messageId);
+    
+    btnDiv.appendChild(saveBtn);
+    btnDiv.appendChild(cancelBtn);
+    bubbleEl.appendChild(btnDiv);
+    
+    // Focus textarea
+    textarea.focus();
+    textarea.select();
+  }
+  
+  // Save edited message
+  async function saveEditMessage(messageId, newContent) {
+    const msgData = messageMap.get(messageId);
+    if (!msgData) return;
+    
+    const newContentTrimmed = newContent.trim();
+    if (!newContentTrimmed) {
+      alert('Message cannot be empty');
+      return;
+    }
+    
+    try {
+      // Update message in map
+      msgData.content = newContentTrimmed;
+      messageMap.set(messageId, msgData);
+      
+      // Update UI to show new content
+      const bubbleEl = msgData.element;
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'bubble-content';
+      contentDiv.textContent = newContentTrimmed;
+      
+      bubbleEl.innerHTML = '';
+      bubbleEl.appendChild(contentDiv);
+      
+      // Recreate edit button
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'bubble-actions';
+      const editBtn = document.createElement('button');
+      editBtn.className = 'bubble-edit-btn';
+      editBtn.textContent = '✏️ Edit';
+      editBtn.onclick = (e) => {
+        e.stopPropagation();
+        startEditMessage(messageId, bubbleEl);
+      };
+      actionsDiv.appendChild(editBtn);
+      bubbleEl.appendChild(actionsDiv);
+      
+      // Re-add token info if exists
+      if (msgData.tokenInfo && msgData.role === 'assistant' && devModeEnabled) {
+        const tokenDiv = document.createElement('div');
+        tokenDiv.className = 'muted';
+        tokenDiv.style.cssText = 'font-size:11px; margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1);';
+        tokenDiv.innerHTML = `<strong>Token Usage:</strong> prompt=${msgData.tokenInfo.prompt_tokens || 0}, completion=${msgData.tokenInfo.completion_tokens || 0}, total=${msgData.tokenInfo.total_tokens || 0}<br>` +
+          `<strong>Estimated:</strong> input=${msgData.tokenInfo.estimated_input_tokens || 0}, system_prompt=${msgData.tokenInfo.system_prompt_tokens || 0}`;
+        bubbleEl.appendChild(tokenDiv);
+      }
+      
+      // Save to backend
+      if (currentLoadedConversation) {
+        await saveCurrentConversation();
+      }
+      
+      console.log('[DEBUG] Message edited and saved:', messageId);
+    } catch (e) {
+      console.error('Failed to save edited message:', e);
+      alert('Failed to save: ' + e.message);
+    }
+  }
+  
+  // Cancel editing and restore original content
+  function cancelEditMessage(messageId) {
+    const msgData = messageMap.get(messageId);
+    if (!msgData) return;
+    
+    const bubbleEl = msgData.element;
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'bubble-content';
+    contentDiv.textContent = msgData.content;
+    
+    bubbleEl.innerHTML = '';
+    bubbleEl.appendChild(contentDiv);
+    
+    // Recreate edit button
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'bubble-actions';
+    const editBtn = document.createElement('button');
+    editBtn.className = 'bubble-edit-btn';
+    editBtn.textContent = '✏️ Edit';
+    editBtn.onclick = (e) => {
+      e.stopPropagation();
+      startEditMessage(messageId, bubbleEl);
+    };
+    actionsDiv.appendChild(editBtn);
+    bubbleEl.appendChild(actionsDiv);
+    
+    // Re-add token info if exists
+    if (msgData.tokenInfo && msgData.role === 'assistant' && devModeEnabled) {
+      const tokenDiv = document.createElement('div');
+      tokenDiv.className = 'muted';
+      tokenDiv.style.cssText = 'font-size:11px; margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1);';
+      tokenDiv.innerHTML = `<strong>Token Usage:</strong> prompt=${msgData.tokenInfo.prompt_tokens || 0}, completion=${msgData.tokenInfo.completion_tokens || 0}, total=${msgData.tokenInfo.total_tokens || 0}<br>` +
+        `<strong>Estimated:</strong> input=${msgData.tokenInfo.estimated_input_tokens || 0}, system_prompt=${msgData.tokenInfo.system_prompt_tokens || 0}`;
+      bubbleEl.appendChild(tokenDiv);
+    }
   }
 
   // API function to call backend endpoints
@@ -983,6 +1162,10 @@
     chatlog.innerHTML = "";
     meta.textContent = "Clearing...";
     
+    // Reset message tracking
+    messageIndex = 0;
+    messageMap.clear();
+    
     // Hide loaded conversation UI
     loadedConvHeader.style.display = 'none';
     loadedConvFooter.style.display = 'none';
@@ -1267,6 +1450,7 @@
   const closeConversationsBtn = document.getElementById('close-conversations-modal');
   const conversationSearch = document.getElementById('conversation-search');
   const reloadConversationsBtn = document.getElementById('reload-conversations-btn');
+  const newConversationBtn = document.getElementById('new-conversation-btn');
   
   // New UI elements in chat window
   const loadedConvHeader = document.getElementById('loaded-conv-header');
@@ -1283,6 +1467,47 @@
   openConversationsBtn.onclick = () => {
     conversationsModal.classList.add('show');
     loadConversationsList();
+  };
+  
+  // New conversation button - clear chat and start fresh
+  newConversationBtn.onclick = async () => {
+    conversationsModal.classList.remove('show');
+    
+    // Clear chat display
+    chatlog.innerHTML = '';
+    
+    // Reset message tracking
+    messageIndex = 0;
+    messageMap.clear();
+    
+    // Hide loaded conversation UI
+    loadedConvHeader.style.display = 'none';
+    loadedConvFooter.style.display = 'none';
+    
+    // Reset loaded conversation tracker
+    currentLoadedConversation = null;
+    selectedConversationId = null;
+    
+    // Clear input box and focus
+    const msgInput = document.getElementById('msg');
+    if (msgInput) {
+      msgInput.value = '';
+      msgInput.disabled = false;
+      msgInput.style.pointerEvents = 'auto';
+      msgInput.style.opacity = '1';
+      msgInput.focus();
+    }
+    
+    // Update metadata
+    meta.textContent = 'New conversation started';
+    
+    try {
+      // Clear backend history
+      await api('/clear-history', 'POST', { session_id: 'default' });
+      console.log('[DEBUG] New conversation started');
+    } catch (e) {
+      console.warn('[DEBUG] Failed to clear backend history:', e.message);
+    }
   };
   
   // Close conversations window
@@ -1665,6 +1890,10 @@
       // Clear current chat
       chatlog.innerHTML = '';
       
+      // Reset message tracking
+      messageIndex = 0;
+      messageMap.clear();
+      
       // Add messages to chat display
       conversationData.messages.forEach(msg => {
         if (msg.role === 'user' || msg.role === 'assistant') {
@@ -1685,6 +1914,15 @@
       // Close modal
       conversationsModal.classList.remove('show');
       
+      // Enable and focus input box
+      const msgInput = document.getElementById('msg');
+      if (msgInput) {
+        msgInput.disabled = false;
+        msgInput.style.pointerEvents = 'auto';
+        msgInput.style.opacity = '1';
+        msgInput.focus();
+      }
+      
       // Update meta
       meta.textContent = `Loaded: ${conversationData.title} (${conversationData.messages.length} messages) - Context synced`;
       
@@ -1699,6 +1937,16 @@
         }
       });
       conversationsModal.classList.remove('show');
+      
+      // Enable and focus input box even on error
+      const msgInput = document.getElementById('msg');
+      if (msgInput) {
+        msgInput.disabled = false;
+        msgInput.style.pointerEvents = 'auto';
+        msgInput.style.opacity = '1';
+        msgInput.focus();
+      }
+      
       meta.textContent = `Loaded: ${conversationData.title} (display only - context sync failed)`;
     }
   }

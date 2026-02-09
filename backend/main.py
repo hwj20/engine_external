@@ -33,6 +33,10 @@ from conversations_api import (
     update_conversation_title,
     reload_engine_conversations,
     init_engine_conversations,
+    split_conversations_file,
+    delete_engine_conversation,
+    is_split_available,
+    _find_conversations_json,
     PERSONAL_INFO_DIR
 )
 
@@ -946,16 +950,23 @@ def get_engine_conversation(conversation_id: str):
 @app.post("/engine-conversations/reload")
 def reload_conversations():
     """
-    Reload engine conversations by copying from conversations.json
+    Reload engine conversations by re-splitting from conversations.json
     """
-    print(f"[ENGINE_CONV] Reloading conversations from conversations.json", flush=True)
+    print(f"[ENGINE_CONV] Re-splitting conversations from source", flush=True)
     
     success = reload_engine_conversations()
     
     if success:
-        return {"ok": True, "message": "Conversations reloaded successfully"}
+        return {"ok": True, "message": "Conversations re-split successfully"}
     else:
-        return {"ok": False, "error": "Failed to reload conversations"}
+        return {"ok": False, "error": "Failed to re-split conversations"}
+
+
+@app.get("/conversations/split-status")
+def get_split_status():
+    """Check whether conversations have been split into multi-file format"""
+    available = is_split_available()
+    return {"available": available}
 
 
 @app.post("/engine-conversations/{conversation_id}/title")
@@ -996,36 +1007,14 @@ def save_conversation(data: dict):
 @app.post("/engine-conversations/delete/{conversation_id}")
 def delete_conversation(conversation_id: str):
     """
-    Delete a conversation from engine conversations
+    Delete a conversation from the split store
     """
     print(f"[ENGINE_CONV] Deleting conversation: {conversation_id}", flush=True)
-    
-    try:
-        import json
-        engine_conversations_file = os.path.join(DATA_DIR, "external_engine_conversation.json")
-        
-        if not os.path.exists(engine_conversations_file):
-            return {"error": "Conversations file not found"}
-        
-        with open(engine_conversations_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        # data is a list of conversation objects
-        original_len = len(data)
-        data = [c for c in data if c.get('conversation_id', c.get('id', '')) != conversation_id]
-        
-        if len(data) == original_len:
-            return {"error": f"Conversation {conversation_id} not found"}
-        
-        with open(engine_conversations_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        print(f"[ENGINE_CONV] Deleted conversation: {conversation_id}", flush=True)
+    success = delete_engine_conversation(conversation_id)
+    if success:
         return {"ok": True, "message": f"Conversation {conversation_id} deleted"}
-    
-    except Exception as e:
-        print(f"[ENGINE_CONV] Error deleting conversation: {e}", flush=True)
-        return {"error": f"Failed to delete: {str(e)}"}
+    else:
+        return {"error": f"Conversation {conversation_id} not found or could not be deleted"}
 
 
 @app.post("/upload-conversation-zip")
@@ -1068,14 +1057,23 @@ async def upload_conversation_zip(file: UploadFile = File(...)):
 
             print(f"[UPLOAD] Extracted {extracted_count} files to {PERSONAL_INFO_DIR}", flush=True)
 
-            # Also reload engine conversations so the new data is picked up
-            reload_engine_conversations()
+            # Auto-split conversations.json into multi-file architecture
+            split_result = None
+            source = _find_conversations_json(PERSONAL_INFO_DIR)
+            if source:
+                try:
+                    split_result = split_conversations_file(source)
+                    print(f"[UPLOAD] Auto-split: {split_result['total']} conversations in {split_result['elapsed']}s", flush=True)
+                except Exception as e:
+                    print(f"[UPLOAD] Auto-split failed: {e}", flush=True)
+                    logger.error(f"Auto-split after upload failed: {e}")
 
             return {
                 "ok": True,
                 "message": f"Successfully extracted {extracted_count} files",
                 "extracted_count": extracted_count,
-                "target_dir": PERSONAL_INFO_DIR
+                "target_dir": PERSONAL_INFO_DIR,
+                "split": split_result
             }
         finally:
             # Clean up temp file
