@@ -11,7 +11,7 @@
 
 你需要准备：
 
-* **Engine External zip包**（[点击下载](https://github.com/hwj20/engine_external/releases/tag/v0.1.2)）
+* **Engine External zip包**（[点击下载](https://github.com/hwj20/engine_external/releases/latest)）
 * **OpenAI API Key**（[获取地址](https://platform.openai.com/api-keys)）
 * **时间：** 约 10-15 分钟
 
@@ -28,32 +28,11 @@
 
 ---
 
-### Step 2: 导入 ChatGPT 对话记录
-
-#### 2.1 从 ChatGPT 导出数据
-
-1. 打开 [ChatGPT](https://chat.openai.com)。
-2. 左下角头像 → **Settings** → **Data controls**。
-3. 点击 **Export data**。
-4. 等邮件，下载 zip 文件。
-
-#### 2.2 导入到 Local
-> 💡 **建议：** 把原始导出文件备份到云端，以防万一。
-
-
-<img width="1781" height="1408" alt="be1364ba281407aa609895c762d85809" src="https://github.com/user-attachments/assets/602c9b87-f690-4f9a-9550-36654f0e95f1" />
-
-
----
-
-### Step 3: 迁移 Memory（记忆）
+### Step 2: 迁移 Memory（记忆）
 
 <img width="1766" height="1407" alt="8711d42e05b32e40ce15c2441f880c50" src="https://github.com/user-attachments/assets/32e652f5-5e0c-4023-bcd9-7b40763e016f" />
 
-
----
-
-### Step 4: 标记 Core 记忆
+#### Step 2.1: 标记 Core 记忆
 
 **Core 记忆** = 每次对话都会用到的重要信息（名字、偏好、家人宠物等）。
 
@@ -65,7 +44,28 @@
 
 ---
 
-### Step 5: 配置 System Prompt
+### Step 3: 导入 ChatGPT 对话记录
+
+#### 3.1 从 ChatGPT 导出数据
+
+1. 打开 [ChatGPT](https://chat.openai.com)。
+2. 左下角头像 → **Settings** → **Data controls**。
+3. 点击 **Export data**。
+4. 等邮件，下载 zip 文件。
+
+#### 3.2 导入到 Local
+> 💡 **建议：** 把原始导出文件备份到云端，以防万一。
+
+
+<img width="1781" height="1408" alt="be1364ba281407aa609895c762d85809" src="https://github.com/user-attachments/assets/602c9b87-f690-4f9a-9550-36654f0e95f1" />
+
+
+
+
+
+---
+
+### Step 4: 配置 System Prompt
 <img width="1792" height="1409" alt="850dd808e3f4052cd615452feb1d563d" src="https://github.com/user-attachments/assets/3228e697-c15d-4362-8de4-cebd14f09cca" />
 
 
@@ -97,5 +97,5 @@ A: 所有数据保存在你本地，不经过任何第三方服务器。只有 A
 
 ### 🐛 遇到问题？
 
-Windows版我会维护，Mac版有人反馈我就会维护
+Windows版我会维护，Mac版有人反馈我会维护
 
