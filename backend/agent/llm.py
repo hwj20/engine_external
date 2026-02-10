@@ -1,6 +1,6 @@
 import json
 import logging
-import urllib.request
+import requests
 from typing import Dict, List, Tuple, Any
 
 logger = logging.getLogger(__name__)
@@ -130,13 +130,14 @@ class OpenAICompatibleClient:
             "max_tokens": max_tokens,
             "temperature": temperature,
         }
-        data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(url, data=data, method="POST")
-        req.add_header("Content-Type", "application/json")
-        req.add_header("Authorization", f"Bearer {self.api_key}")
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
         try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                obj = json.loads(resp.read().decode("utf-8"))
+            resp = requests.post(url, json=payload, headers=headers, timeout=60)
+            resp.raise_for_status()
+            obj = resp.json()
             logger.info(f"LLM response received successfully")
             
             # 提取token使用信息
