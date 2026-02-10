@@ -11,7 +11,7 @@
 
 你需要准备：
 
-* **Engine External zip包**（[点击下载](https://github.com/hwj20/engine_external/releases/tag/v0.1.2)）
+* **Engine External zip包**（[点击下载](https://github.com/hwj20/engine_external/releases/latest)）
 * **OpenAI API Key**（[获取地址](https://platform.openai.com/api-keys)）
 * **时间：** 约 10-15 分钟
 
