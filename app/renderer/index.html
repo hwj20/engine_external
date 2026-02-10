@@ -1619,21 +1619,19 @@
       // Note: addBubble uses 'u' for user, 'a' for assistant
       const role = bubble.classList.contains('u') ? 'user' : 'assistant';
       
-      // Extract only the message content, excluding token info div
-      let content = bubble.textContent;
-      
-      // If this is an assistant message and there's a muted token div child, remove its text
-      if (role === 'assistant') {
-        const tokenDiv = bubble.querySelector('.muted');
-        if (tokenDiv) {
-          // Get text excluding the token div
-          const textNodes = [];
-          for (let child of bubble.childNodes) {
-            if (child.nodeType === Node.TEXT_NODE) {
-              textNodes.push(child.textContent);
-            }
+      // Extract only the message content from .bubble-content div
+      let content = '';
+      const contentDiv = bubble.querySelector('.bubble-content');
+      if (contentDiv) {
+        content = contentDiv.textContent.trim();
+      } else {
+        // Fallback: try to get text excluding token info and buttons
+        content = bubble.textContent;
+        if (role === 'assistant') {
+          const tokenDiv = bubble.querySelector('.muted');
+          if (tokenDiv) {
+            content = content.replace(tokenDiv.textContent, '').trim();
           }
-          content = textNodes.join('').trim() || content.replace(tokenDiv.textContent, '').trim();
         }
       }
       
