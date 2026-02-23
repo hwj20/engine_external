@@ -88,6 +88,207 @@ DATA_DIR = get_app_data_dir()
 
 os.makedirs(DATA_DIR, exist_ok=True)
 
+
+def _load_json_safe(path: str) -> Dict[str, Any]:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _is_default_like_settings(data: Dict[str, Any]) -> bool:
+    if not data:
+        return True
+
+    has_api = bool((data.get("api_key") or "").strip())
+    has_base = bool((data.get("base_url") or "").strip())
+    has_model = bool((data.get("model") or "").strip())
+    has_prompt = bool((data.get("system_prompt") or "").strip())
+    return not (has_api or has_base or has_model or has_prompt)
+
+
+def _backup_file(path: str) -> Optional[str]:
+    if not os.path.isfile(path):
+        return None
+    ts = int(time.time())
+    backup_path = f"{path}.bak.{ts}"
+    shutil.copy2(path, backup_path)
+    return backup_path
+
+
+def _should_replace_existing_file(src: str, dst: str, dst_rel: str) -> bool:
+    if not os.path.exists(dst):
+        return True
+
+    # settings: if destination is default-like but source has real user config, replace
+    if dst_rel == "settings.json":
+        src_data = _load_json_safe(src)
+        dst_data = _load_json_safe(dst)
+        return _is_default_like_settings(dst_data) and not _is_default_like_settings(src_data)
+
+    # sqlite/db-like file: if destination is tiny and source is much larger, replace
+    lower_name = os.path.basename(dst_rel).lower()
+    if lower_name.endswith(".sqlite3") or lower_name.endswith(".db"):
+        try:
+            src_size = os.path.getsize(src)
+            dst_size = os.path.getsize(dst)
+            if dst_size < 64 * 1024 and src_size > max(dst_size * 2, 128 * 1024):
+                return True
+        except Exception:
+            return False
+
+    return False
+
+
+def _copy_file_with_policy(src: str, dst: str, dst_rel: str) -> Dict[str, Any]:
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+
+    if not os.path.exists(dst):
+        shutil.copy2(src, dst)
+        return {"action": "copied", "src": src, "dst": dst}
+
+    if _should_replace_existing_file(src, dst, dst_rel):
+        backup = _backup_file(dst)
+        shutil.copy2(src, dst)
+        return {"action": "replaced", "src": src, "dst": dst, "backup": backup}
+
+    return {"action": "skipped", "src": src, "dst": dst}
+
+
+def _merge_dir_with_policy(src_dir: str, dst_dir: str, dst_rel: str) -> Dict[str, int]:
+    stats = {"copied": 0, "replaced": 0, "skipped": 0}
+
+    for root, _, files in os.walk(src_dir):
+        rel_root = os.path.relpath(root, src_dir)
+        if rel_root == ".":
+            rel_root = ""
+
+        for filename in files:
+            src_file = os.path.join(root, filename)
+            dst_file = os.path.join(dst_dir, rel_root, filename)
+            rel_file = os.path.normpath(os.path.join(dst_rel, rel_root, filename)).replace("\\", "/")
+
+            result = _copy_file_with_policy(src_file, dst_file, rel_file)
+            action = result.get("action", "skipped")
+            if action in stats:
+                stats[action] += 1
+            else:
+                stats["skipped"] += 1
+
+    return stats
+
+
+def _get_legacy_roots(current_data_dir: str) -> List[str]:
+    roots = set()
+    backend_dir = os.path.dirname(__file__)
+    project_root = os.path.dirname(backend_dir)
+    home = os.path.expanduser("~")
+
+    # Historical dev paths
+    roots.add(os.path.join(backend_dir, "data"))
+    roots.add(os.path.join(project_root, "data"))
+    roots.add(os.path.join(project_root, "personal_info"))
+
+    # Historical packaged/electron user data paths
+    if sys.platform == "win32":
+        roots.add(os.path.join(home, "AppData", "Roaming", "Engine External"))
+        roots.add(os.path.join(home, "AppData", "Local", "Engine External"))
+        roots.add(os.path.join(home, "AppData", "Local", "AURORA Local Agent"))
+    elif sys.platform == "darwin":
+        roots.add(os.path.join(home, "Library", "Application Support", "Engine External"))
+        roots.add(os.path.join(home, "Library", "Application Support", "AURORA Local Agent"))
+    else:
+        roots.add(os.path.join(home, ".config", "Engine External"))
+        roots.add(os.path.join(home, ".local", "share", "Engine External"))
+
+    normalized_current = os.path.normpath(current_data_dir)
+    return [
+        r for r in sorted(roots)
+        if r and os.path.exists(r) and os.path.normpath(r) != normalized_current
+    ]
+
+
+def migrate_legacy_user_data(current_data_dir: str) -> Dict[str, Any]:
+    """Merge legacy user data into current data dir (idempotent, safe by default)."""
+    migration_plan = [
+        ("settings.json", "settings.json"),
+        ("memory.sqlite3", "memory.sqlite3"),
+        ("memory_plugins", "memory_plugins"),
+        ("custom_personalities", "custom_personalities"),
+        ("conversations_split", "conversations_split"),
+        ("personal_info", "personal_info"),
+
+        # legacy layouts with nested data/
+        (os.path.join("data", "settings.json"), "settings.json"),
+        (os.path.join("data", "memory.sqlite3"), "memory.sqlite3"),
+        (os.path.join("data", "memory_plugins"), "memory_plugins"),
+        (os.path.join("data", "custom_personalities"), "custom_personalities"),
+        (os.path.join("data", "conversations_split"), "conversations_split"),
+        (os.path.join("data", "personal_info"), "personal_info"),
+
+        # legacy split personal_info location
+        (os.path.join("personal_info", "data"), os.path.join("personal_info", "data")),
+    ]
+
+    roots = _get_legacy_roots(current_data_dir)
+    summary = {
+        "target": current_data_dir,
+        "roots_checked": roots,
+        "copied": 0,
+        "replaced": 0,
+        "skipped": 0,
+        "actions": [],
+    }
+
+    for root in roots:
+        for src_rel, dst_rel in migration_plan:
+            src_path = os.path.join(root, src_rel)
+            dst_path = os.path.join(current_data_dir, dst_rel)
+
+            try:
+                if os.path.isfile(src_path):
+                    result = _copy_file_with_policy(src_path, dst_path, dst_rel.replace("\\", "/"))
+                    action = result.get("action", "skipped")
+                    if action in summary:
+                        summary[action] += 1
+                    summary["actions"].append(result)
+
+                elif os.path.isdir(src_path):
+                    stats = _merge_dir_with_policy(src_path, dst_path, dst_rel.replace("\\", "/"))
+                    summary["copied"] += stats["copied"]
+                    summary["replaced"] += stats["replaced"]
+                    summary["skipped"] += stats["skipped"]
+                    summary["actions"].append({
+                        "action": "merged_dir",
+                        "src": src_path,
+                        "dst": dst_path,
+                        "stats": stats,
+                    })
+            except Exception as e:
+                summary["actions"].append({
+                    "action": "error",
+                    "src": src_path,
+                    "dst": dst_path,
+                    "error": str(e),
+                })
+
+    if summary["copied"] > 0 or summary["replaced"] > 0:
+        print(
+            f"[MIGRATION] Completed: copied={summary['copied']}, replaced={summary['replaced']}, skipped={summary['skipped']}",
+            flush=True,
+        )
+        print(f"[MIGRATION] Target data dir: {current_data_dir}", flush=True)
+    else:
+        print("[MIGRATION] No legacy data copied", flush=True)
+
+    return summary
+
+
+# Run migration BEFORE initializing stores to avoid creating empty files first
+MIGRATION_SUMMARY = migrate_legacy_user_data(DATA_DIR)
+
 settings = SettingsStore(os.path.join(DATA_DIR, "settings.json"))
 memory = MemoryStore(os.path.join(DATA_DIR, "memory.sqlite3"))
 agent = AgentCore(memory=memory, settings=settings)
@@ -286,6 +487,28 @@ def health():
     print("[HEALTH] Health check requested", flush=True)
     logger.info("Health check requested")
     return {"ok": True}
+
+
+@app.get("/storage/paths")
+def get_storage_paths():
+    """Return active storage paths and startup migration summary."""
+    memory_db = os.path.join(DATA_DIR, "memory.sqlite3")
+    settings_file = os.path.join(DATA_DIR, "settings.json")
+    plugin_dir = os.path.join(DATA_DIR, "memory_plugins")
+    return {
+        "data_dir": DATA_DIR,
+        "settings_file": settings_file,
+        "memory_db": memory_db,
+        "memory_plugins_dir": plugin_dir,
+        "personal_info_dir": PERSONAL_INFO_DIR,
+        "exists": {
+            "settings_file": os.path.exists(settings_file),
+            "memory_db": os.path.exists(memory_db),
+            "memory_plugins_dir": os.path.exists(plugin_dir),
+            "personal_info_dir": os.path.exists(PERSONAL_INFO_DIR),
+        },
+        "migration": MIGRATION_SUMMARY,
+    }
 
 @app.get("/settings")
 def get_settings():
