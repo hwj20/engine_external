@@ -30,10 +30,11 @@ class SettingsStore:
                 "max_output_tokens": 800,
                 "temperature": 0.7,
                 "dev_mode": False,
-                "history_strategy": "compression",
+                "history_strategy": "sliding_window",
                 "compression_threshold": 1000,
                 "compression_target": 200,
-                "language": "zh"
+                "language": "zh",
+                "memory_plugin": "vector_memory"
             })
         else:
             print(f"[SettingsStore] Loading existing settings from {path}", flush=True)
@@ -55,6 +56,8 @@ class SettingsStore:
                 existing["compression_target"] = 200
             if "language" not in existing:
                 existing["language"] = "zh"
+            if "memory_plugin" not in existing:
+                existing["memory_plugin"] = "vector_memory"
             self.set(existing)
 
     def set(self, data: Dict[str, Any]) -> None:
@@ -70,8 +73,10 @@ class SettingsStore:
 
     def get_safe(self) -> Dict[str, Any]:
         d = dict(self.get())
-        if d.get("api_key"):
-            d["api_key"] = "********"
+        api_key = d.get("api_key") or ""
+        d["api_key_length"] = len(api_key)
+        if api_key:
+            d["api_key"] = "*" * len(api_key)
         return d
 
 class MemoryStore:

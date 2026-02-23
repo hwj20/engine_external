@@ -11,6 +11,7 @@ from .base import MemoryPluginBase, PluginInfo
 from .temporal_tree_plugin import TemporalTreePlugin
 from .vector_plugin import VectorMemoryPlugin
 from .simple_sqlite_plugin import SimpleSQLitePlugin
+from .local_rerank_plugin import LocalRerankMemoryPlugin
 
 
 class MemoryPluginManager:
@@ -29,6 +30,7 @@ class MemoryPluginManager:
         "temporal_tree": TemporalTreePlugin,
         "vector_memory": VectorMemoryPlugin,
         "simple_sqlite": SimpleSQLitePlugin,
+        "local_rerank": LocalRerankMemoryPlugin,
     }
     
     _instance: Optional['MemoryPluginManager'] = None
@@ -154,6 +156,10 @@ class MemoryPluginManager:
     def get_active_plugin(self) -> MemoryPluginBase:
         """获取当前激活的插件实例"""
         return self._get_or_create_plugin(self._active_plugin_id)
+
+    def get_plugin(self, plugin_id: str) -> MemoryPluginBase:
+        """获取指定插件实例（不存在则创建）"""
+        return self._get_or_create_plugin(plugin_id)
     
     def _get_or_create_plugin(self, plugin_id: str) -> MemoryPluginBase:
         """获取或创建插件实例"""
@@ -162,10 +168,20 @@ class MemoryPluginManager:
                 raise ValueError(f"Unknown plugin: {plugin_id}")
             
             plugin_class = self._registered_plugins[plugin_id]
-            config = self._plugin_configs.get(plugin_id, {})
+            config = dict(self._plugin_configs.get(plugin_id, {}))
             
             # 创建插件专用的存储路径
             plugin_storage = os.path.join(self.storage_path, plugin_id)
+
+            # 让“向量分词匹配”和“本地小模型匹配”共享同一份记忆库
+            # 默认复用 vector_memory 的数据库文件，兼容已有数据。
+            if plugin_id in ["vector_memory", "local_rerank"]:
+                shared_dir = os.path.join(self.storage_path, "vector_memory")
+                os.makedirs(shared_dir, exist_ok=True)
+                config["shared_db_file"] = os.path.join(
+                    shared_dir,
+                    f"{self.user_id}_vector_memory.db"
+                )
             
             plugin = plugin_class(
                 user_id=self.user_id,

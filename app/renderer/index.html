@@ -29,12 +29,18 @@
     .bubble-actions { display: none; position: absolute; top: 8px; right: 8px; gap: 4px; z-index: 10; }
     .bubble:hover .bubble-actions { display: flex; }
     .bubble-edit-btn, .bubble-save-btn, .bubble-cancel-btn { padding: 4px 8px; font-size: 11px; border-radius: 6px; border: none; cursor: pointer; background: rgba(80,120,255,.3); color: #e7eefc; }
+    .bubble-regen-btn { width: 22px; height: 22px; border-radius: 50%; border: none; cursor: pointer; background: rgba(80,120,255,.3); color: #e7eefc; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; padding: 0; }
+    .bubble-branch-btn { height: 22px; border-radius: 11px; border: none; cursor: pointer; background: rgba(140,120,255,.3); color: #e7eefc; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; padding: 0 8px; }
+    .bubble-regen-btn:hover { background: rgba(80,120,255,.5); }
+    .bubble-branch-btn:hover { background: rgba(140,120,255,.5); }
     .bubble-edit-btn:hover { background: rgba(80,120,255,.5); }
     .bubble-save-btn { background: rgba(100,200,100,.3); }
     .bubble-save-btn:hover { background: rgba(100,200,100,.5); }
     .bubble-cancel-btn { background: rgba(255,100,100,.3); }
     .bubble-cancel-btn:hover { background: rgba(255,100,100,.5); }
     .bubble-content { white-space: pre-wrap; word-break: break-word; }
+    .bubble-content.typing::after { content: '▌'; opacity: .9; margin-left: 1px; animation: caret-blink 1s steps(1) infinite; }
+    @keyframes caret-blink { 0%, 49% { opacity: .9; } 50%, 100% { opacity: 0; } }
     .bubble-textarea { width: 100%; min-height: 60px; border-radius: 8px; border: 1px solid rgba(80,120,255,.3); background: rgba(0,0,0,.3); color: #e7eefc; padding: 8px; font-family: inherit; font-size: inherit; resize: vertical; outline: none; margin-bottom: 8px; }
     .u { background: rgba(80,120,255,.12); align-self:flex-end; max-width: 76%; }
     .a { background: rgba(255,255,255,.06); align-self:flex-start; max-width: 76%; }
@@ -196,7 +202,6 @@
           <option value="zh" data-i18n="header.language_zh" selected>中文</option>
         </select>
       </div>
-      <div class="badge" data-i18n="header.badge_tip">Tip: Start backend first, then open chat.</div>
     </div>
   </header>
 
@@ -213,8 +218,19 @@
           <label data-i18n="settings.base_url">Base URL (e.g. https://api.openai.com)</label>
           <input id="base_url" placeholder="https://api.openai.com" />
 
-          <label style="margin-top:10px;" data-i18n="settings.api_key">API Key (leave empty to keep existing key)</label>
-          <input id="api_key" type="password" data-i18n="settings.api_key" data-i18n-placeholder />
+          <div style="margin-top:10px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
+            <label style="margin:0;" data-i18n="settings.api_key">API Key</label>
+            <button id="edit-api-key" type="button" style="white-space:nowrap; padding:6px 10px; border-radius:8px; background:rgba(80,120,255,.2); border-color:rgba(80,120,255,.35);" data-i18n="settings.api_key_edit">✏️ Edit</button>
+          </div>
+          <div id="api-key-view-row" style="display:flex; align-items:center;">
+            <span id="api_key_masked" class="muted" style="font-size:11px; letter-spacing:0.3px; opacity:.92; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block;">(not set)</span>
+          </div>
+          <div id="api-key-edit-row" style="display:none; gap:8px; align-items:center;">
+            <input id="api_key" type="text" style="flex:1;" />
+            <button id="save-api-key" type="button" style="white-space:nowrap; padding:7px 10px; border-radius:8px; font-size:12px; background:rgba(80,120,255,.32); border-color:rgba(80,120,255,.5); color:#e7eefc;" data-i18n="settings.api_key_save">Save API Key</button>
+            <button id="cancel-api-key" type="button" style="white-space:nowrap; padding:7px 10px; border-radius:8px; font-size:12px; background:transparent; border-color:rgba(255,255,255,.2); color:rgba(231,238,252,.9);" data-i18n="settings.api_key_cancel">Cancel</button>
+          </div>
+          <div id="api-key-hint" class="muted" style="font-size:11px; margin-top:6px;"></div>
 
           <label style="margin-top:10px;" data-i18n="settings.model">Model</label>
           <select id="model" style="width:100%; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px; margin-bottom:8px;">
@@ -245,6 +261,7 @@
           <div style="margin-top:16px; padding-top:12px; border-top:1px solid rgba(255,255,255,.08);">
             <label style="font-weight:600; margin-bottom:8px; display:block;" data-i18n="settings.history_strategy">对话历史策略</label>
             <div style="display:flex; flex-direction:column; gap:6px;">
+              <!--
               <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin:0;">
                 <input type="radio" name="history_strategy" value="compression" style="width:auto; margin:0;" checked />
                 <span data-i18n="settings.compression">智能压缩 (推荐) — 自动压缩旧对话，保留核心信息</span>
@@ -255,12 +272,13 @@
                 <label style="margin-top:6px; display:block;" data-i18n="settings.compression_target">压缩目标 (tokens，压缩后的目标大小)</label>
                 <input id="compression_target" type="number" placeholder="200" min="50" max="2000" />
               </div>
+              -->
 
               <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin:0; margin-top:8px;">
-                <input type="radio" name="history_strategy" value="sliding_window" style="width:auto; margin:0;" />
+                <input type="radio" name="history_strategy" value="sliding_window" style="width:auto; margin:0;" checked />
                 <span data-i18n="settings.sliding_window">滑动窗口 (传统) — 截断早期对话</span>
               </label>
-              <div id="sliding-window-options" style="display:none; margin-top:8px; margin-left:24px;">
+              <div id="sliding-window-options" style="display:block; margin-top:8px; margin-left:24px;">
                 <label style="margin-bottom:6px; display:block;" data-i18n="settings.max_input_tokens">Max Input Tokens (context limit)</label>
                 <input id="max_input_tokens" type="number" placeholder="2000" min="100" max="128000" />
                 <div id="system_prompt_tokens_info" class="muted" style="font-size:12px; margin-top:2px;"></div>
@@ -268,10 +286,7 @@
             </div>
           </div>
 
-          <div style="display:flex; gap:10px; margin-top:12px;">
-            <button id="save" data-i18n="settings.save">Save</button>
-            <button id="health" data-i18n="settings.test_backend">Test Backend</button>
-          </div>
+          <div class="muted" id="settings-autosave-hint" style="margin-top:12px;" data-i18n="settings.auto_save_hint">Changes are saved automatically.</div>
         </div>
         <div id="status" class="muted" style="margin-top:10px;"></div>
       </div>
@@ -384,9 +399,9 @@
           <!-- Search bar and controls -->
           <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
             <input id="conversation-search" type="text" data-i18n="chat_history.search_placeholder" data-i18n-placeholder style="flex:1; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px; outline:none;" />
-            <button id="new-conversation-btn" data-i18n-title="chat_history.new_conversation_title" title="Start a new conversation" style="padding:10px 12px; font-size:12px; background:rgba(100,200,100,.2); border-color:rgba(100,200,100,.4); white-space:nowrap;">➕ New Chat</button>
-            <button id="upload-conversation-zip-btn" data-i18n-title="chat_history.upload_zip_title" title="Upload a zip data package to import conversations" style="padding:10px 12px; font-size:12px; background:rgba(80,200,120,.2); border-color:rgba(80,200,120,.4); white-space:nowrap;">📦 Upload Zip</button>
-            <button id="reload-conversations-btn" data-i18n-title="chat_history.reload_title" title="Reload from conversations.json" style="padding:10px 12px; font-size:12px; background:rgba(255,180,80,.2); border-color:rgba(255,180,80,.4); white-space:nowrap;">🔄 Reload</button>
+            <button id="new-conversation-btn" data-i18n-title="chat_history.new_conversation_title" data-i18n="chat_history.new_chat_btn" title="Start a new conversation" style="padding:10px 12px; font-size:12px; background:rgba(100,200,100,.2); border-color:rgba(100,200,100,.4); white-space:nowrap;">➕ New Chat</button>
+            <button id="upload-conversation-zip-btn" data-i18n-title="chat_history.upload_zip_title" data-i18n="chat_history.upload_zip_btn" title="Upload a zip data package to import conversations" style="padding:10px 12px; font-size:12px; background:rgba(80,200,120,.2); border-color:rgba(80,200,120,.4); white-space:nowrap;">📦 Upload Zip</button>
+            <button id="reload-conversations-btn" data-i18n-title="chat_history.reload_title" data-i18n="chat_history.reload_btn" title="Reload from conversations.json" style="padding:10px 12px; font-size:12px; background:rgba(255,180,80,.2); border-color:rgba(255,180,80,.4); white-space:nowrap;">🔄 Reload</button>
             <input type="file" id="zip-file-input" accept=".zip" style="display:none;" />
           </div>
           
@@ -408,8 +423,8 @@
           <h3 id="confirm-title" style="display:none;"></h3>
           <p id="confirm-message" style="margin:0 0 12px 0; font-size:13px; color:rgba(231,238,252,.9); line-height:1.4; text-align:center; word-wrap:break-word;"></p>
           <div style="display:flex; gap:8px; justify-content:center; flex-shrink:0;">
-            <button id="confirm-cancel" style="padding:6px 16px; border-radius:4px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.08); color:#e7eefc; font-size:12px; cursor:pointer;">取消</button>
-            <button id="confirm-ok" style="padding:6px 16px; border-radius:4px; border:1px solid rgba(80,120,255,.4); background:rgba(80,120,255,.3); color:#e7eefc; font-size:12px; cursor:pointer;">确认</button>
+            <button id="confirm-cancel" style="padding:6px 16px; border-radius:4px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.08); color:#e7eefc; font-size:12px; cursor:pointer;" data-i18n="common.cancel">Cancel</button>
+            <button id="confirm-ok" style="padding:6px 16px; border-radius:4px; border:1px solid rgba(80,120,255,.4); background:rgba(80,120,255,.3); color:#e7eefc; font-size:12px; cursor:pointer;" data-i18n="common.confirm">Confirm</button>
           </div>
         </div>
       </div>
@@ -424,46 +439,61 @@
           <span class="modal-close" id="close-memory-modal">&times;</span>
         </div>
         <div class="modal-body">
-          <!-- Plugin Selection (Hidden, always using vector memory) -->
-          <input type="hidden" id="memory-plugin-select" value="vector">
-          <div id="plugin-info" class="muted" style="font-size:11px; padding:6px; background:rgba(255,255,255,.04); border-radius:4px; margin-bottom:8px; display:none;"></div>
-          <div id="plugin-features" style="display:none; gap:4px; flex-wrap:wrap;"></div>
+          <!-- Plugin Selection -->
+          <div style="margin-bottom:10px;">
+            <label style="font-size:12px; margin-bottom:6px; display:block;" data-i18n="memory.mode_label">Memory Matching Mode</label>
+            <select id="memory-plugin-select" style="width:100%; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:10px;">
+              <option value="vector_memory" data-i18n="memory.mode_vector">Vector Keyword Matching</option>
+              <!-- <option value="local_rerank" data-i18n="memory.mode_local">Local Small Model Matching</option> -->
+            </select>
+          </div>
+          <div id="plugin-info" class="muted" style="font-size:11px; padding:6px; background:rgba(255,255,255,.04); border-radius:4px; margin-bottom:8px; display:block;"></div>
+          <div id="plugin-features" style="display:flex; gap:4px; flex-wrap:wrap;"></div>
+
+          <div id="local-model-panel" style="display:none; margin-top:10px; margin-bottom:10px; padding:8px; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:6px;">
+            <div style="font-size:12px; font-weight:600; margin-bottom:6px;" data-i18n="memory.local_model_title">Local Rerank Model</div>
+            <div id="local-model-status" class="muted" style="font-size:11px; margin-bottom:4px;">-</div>
+            <div id="local-model-path" class="muted" style="font-size:10px; margin-bottom:8px; word-break:break-all;">-</div>
+            <div style="display:flex; gap:6px;">
+              <button id="manage-local-model" style="flex:1; padding:7px 8px; font-size:11px;" data-i18n="memory.manage_model_btn">Download / Update MiniLM</button>
+            </div>
+          </div>
           
           <!-- Tab Switching -->
           <div class="tab-buttons">
-            <div class="tab-btn active" data-tab="memories">Memories</div>
-            <button id="refresh-memory" style="padding:8px 12px; font-size:12px; flex:0.5;">Refresh</button>
+            <div class="tab-btn active" data-tab="memories" data-i18n="memory.tab_memories">Memories</div>
+            <button id="refresh-memory" style="padding:8px 12px; font-size:12px; flex:0.5;" data-i18n="memory.refresh_btn">Refresh</button>
           </div>
 
           <!-- Memory List -->
           <div id="memories-tab" class="tab-content">
             <!-- Core Memory -->
             <div style="margin-bottom:16px;">
-              <div style="font-weight:600; font-size:12px; margin-bottom:8px; color:#80d8ff;">⭐ Core Memory</div>
+              <div style="font-weight:600; font-size:12px; margin-bottom:8px; color:#80d8ff;" data-i18n="memory.core_memory_title">⭐ Core Memory</div>
               <div id="core-memory-list" style="background:rgba(0,0,0,.2); border-radius:6px; padding:8px; min-height:60px; max-height:150px; overflow-y:auto; border:1px solid rgba(128,216,255,.2);">
-                <div class="muted" style="text-align:center; padding:20px; font-size:12px;">No core memories yet</div>
+                <div class="muted" style="text-align:center; padding:20px; font-size:12px;" data-i18n="memory.no_core_memories">No core memories yet</div>
               </div>
             </div>
             
             <!-- Memory Library -->
             <div>
-              <div style="font-weight:600; font-size:12px; margin-bottom:8px; color:#b3e5fc;">📚 Memory Library</div>
+              <div style="font-weight:600; font-size:12px; margin-bottom:8px; color:#b3e5fc;" data-i18n="memory.library_title">📚 Memory Library</div>
               
               <!-- Memory list -->
               <div id="memory-library-list" style="background:rgba(0,0,0,.2); border-radius:6px; padding:8px; min-height:60px; max-height:200px; overflow-y:auto; border:1px solid rgba(179,229,252,.2);">
-                <div class="muted" style="text-align:center; padding:20px; font-size:12px;">Click refresh to load memories...</div>
+                <div class="muted" style="text-align:center; padding:20px; font-size:12px;" data-i18n="memory.click_refresh_to_load">Click refresh to load memories...</div>
               </div>
             </div>
           </div>
 
           <!-- Add Memory -->
           <div style="margin-top:16px; padding-top:12px; border-top:1px solid rgba(255,255,255,.08);">
-            <div style="font-weight:600; font-size:13px; margin-bottom:8px;">Add Memory</div>
+            <div style="font-weight:600; font-size:13px; margin-bottom:8px;" data-i18n="memory.add_memory_title">Add Memory</div>
             <textarea id="new-memory" data-i18n="memory.new_memory" data-i18n-placeholder style="width:100%; min-height:60px; font-size:12px; box-sizing:border-box; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.25); color:#e7eefc; padding:8px; outline:none;"></textarea>
             <div style="display:flex; gap:6px; margin-top:8px;">
-              <button id="add-memory" style="flex:1; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(80,120,255,.2); color:#e7eefc; font-size:12px; cursor:pointer;">Add</button>
-              <button id="auto-select-core" data-i18n-title="memory.auto_core_title" style="flex:1; padding:8px; border-radius:8px; border:1px solid rgba(255,200,100,.3); background:rgba(255,200,100,.15); color:#e7eefc; font-size:12px; cursor:pointer;" title="Let AI select important memories for Core">🤖 Auto Core</button>
-              <button id="clear-memory" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(255,80,80,.2); color:#e7eefc; font-size:12px; cursor:pointer;">Clear</button>
+              <button id="add-memory" style="flex:1; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(80,120,255,.2); color:#e7eefc; font-size:12px; cursor:pointer;" data-i18n="memory.add_memory_btn">Add</button>
+              <button id="auto-select-core" data-i18n-title="memory.auto_core_title" data-i18n="memory.auto_core_btn" style="flex:1; padding:8px; border-radius:8px; border:1px solid rgba(255,200,100,.3); background:rgba(255,200,100,.15); color:#e7eefc; font-size:12px; cursor:pointer;" title="Let AI select important memories for Core">🤖 Auto Core</button>
+              <button id="clear-memory" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:rgba(255,80,80,.2); color:#e7eefc; font-size:12px; cursor:pointer;" data-i18n="memory.clear_memory_btn">Clear</button>
             </div>
             <div id="memory-status" class="muted" style="margin-top:8px; font-size:11px;"></div>
           </div>
@@ -495,7 +525,7 @@
         <textarea id="msg" data-i18n="main_chat.message_placeholder" data-i18n-placeholder></textarea>
         <div style="display:flex; gap:10px; margin-top:10px;">
           <button id="send" data-i18n="main_chat.send">Send</button>
-          <button id="clear">Clear</button>
+          <button id="clear" data-i18n="main_chat.clear">Clear</button>
         </div>
         <div id="meta" class="muted" style="margin-top:10px;"></div>
       </div>
@@ -542,11 +572,12 @@
   function toggleHistoryStrategyOptions(strategy) {
     const compressionOpts = document.getElementById("compression-options");
     const slidingOpts = document.getElementById("sliding-window-options");
+    if (!slidingOpts) return;
     if (strategy === "compression") {
-      compressionOpts.style.display = "block";
+      if (compressionOpts) compressionOpts.style.display = "block";
       slidingOpts.style.display = "none";
     } else {
-      compressionOpts.style.display = "none";
+      if (compressionOpts) compressionOpts.style.display = "none";
       slidingOpts.style.display = "block";
     }
   }
@@ -571,53 +602,367 @@
   // Message index for tracking
   let messageIndex = 0;
   const messageMap = new Map(); // Map of messageId -> {role, content, element}
-  
-  function addBubble(text, who, tokenInfo = null) {
-    const div = document.createElement("div");
-    div.className = "bubble " + (who === "user" ? "u" : "a");
-    const messageId = `msg_${messageIndex++}`;
-    div.dataset.messageId = messageId;
-    
-    // Create wrapper for content and actions
-    const contentDiv = document.createElement("div");
-    contentDiv.className = "bubble-content";
-    contentDiv.textContent = text;
-    div.appendChild(contentDiv);
-    
-    // Add edit button
-    const actionsDiv = document.createElement("div");
-    actionsDiv.className = "bubble-actions";
-    
-    const editBtn = document.createElement("button");
-    editBtn.className = "bubble-edit-btn";
-    editBtn.textContent = "✏️ Edit";
-    editBtn.onclick = (e) => {
-      e.stopPropagation();
-      startEditMessage(messageId, div);
-    };
-    actionsDiv.appendChild(editBtn);
-    div.appendChild(actionsDiv);
-    
-    // Store message info
-    messageMap.set(messageId, {
-      role: who,
-      content: text,
-      element: div,
-      tokenInfo: tokenInfo
+  let conversationTreeState = null;
+  let activeConversationPath = [];
+
+  function generateTreeNodeId() {
+    return `node_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function resetConversationTree() {
+    conversationTreeState = null;
+    activeConversationPath = [];
+  }
+
+  function createConversationTreeFromMessages(messages) {
+    const nodes = {};
+    const path = [];
+    let parentId = null;
+
+    messages.forEach((msg) => {
+      const nodeId = msg.treeNodeId || generateTreeNodeId();
+      const role = msg.role === 'assistant' ? 'assistant' : 'user';
+      const content = (msg.content || '').trim();
+      if (!content) return;
+
+      nodes[nodeId] = {
+        id: nodeId,
+        role,
+        content,
+        parent_id: parentId,
+        children: [],
+        create_time: Date.now() / 1000,
+      };
+
+      if (parentId && nodes[parentId]) {
+        nodes[parentId].children.push(nodeId);
+      }
+
+      path.push(nodeId);
+      parentId = nodeId;
     });
-    
-    // 如果是assistant消息且开启了开发者模式，显示token详情
-    if (who === "assistant" && devModeEnabled && tokenInfo) {
-      const tokenDiv = document.createElement("div");
-      tokenDiv.className = "muted";
-      tokenDiv.style.cssText = "font-size:11px; margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1);";
-      tokenDiv.innerHTML = `<strong>Token Usage:</strong> prompt=${tokenInfo.prompt_tokens || 0}, completion=${tokenInfo.completion_tokens || 0}, total=${tokenInfo.total_tokens || 0}<br>` +
-        `<strong>Estimated:</strong> input=${tokenInfo.estimated_input_tokens || 0}, system_prompt=${tokenInfo.system_prompt_tokens || 0}`;
-      div.appendChild(tokenDiv);
+
+    return {
+      tree: {
+        version: '1.0',
+        root_id: path.length > 0 ? path[0] : null,
+        nodes,
+      },
+      activePath: path,
+    };
+  }
+
+  function ensureConversationTreeInitialized() {
+    if (
+      conversationTreeState
+      && typeof conversationTreeState === 'object'
+      && conversationTreeState.nodes
+      && typeof conversationTreeState.nodes === 'object'
+      && Array.isArray(activeConversationPath)
+      && activeConversationPath.length > 0
+    ) {
+      return;
     }
-    
-    chatlog.appendChild(div);
-    chatlog.scrollTop = chatlog.scrollHeight;
+
+    const linearMessages = collectChatMessagesFromDom();
+    const built = createConversationTreeFromMessages(linearMessages);
+    conversationTreeState = built.tree;
+    activeConversationPath = built.activePath;
+  }
+
+  function getPathToNode(nodeId) {
+    if (!conversationTreeState || !conversationTreeState.nodes || !nodeId) return [];
+    const nodes = conversationTreeState.nodes;
+    const path = [];
+    let cursor = nodeId;
+    const guard = new Set();
+
+    while (cursor && nodes[cursor] && !guard.has(cursor)) {
+      guard.add(cursor);
+      path.unshift(cursor);
+      cursor = nodes[cursor].parent_id || null;
+    }
+
+    return path;
+  }
+
+  function appendTreeNode(role, content, parentNodeId = null) {
+    ensureConversationTreeInitialized();
+
+    const cleanContent = (content || '').trim();
+    if (!cleanContent) return null;
+
+    if (!conversationTreeState || !conversationTreeState.nodes) {
+      conversationTreeState = { version: '1.0', root_id: null, nodes: {} };
+    }
+
+    const nodes = conversationTreeState.nodes;
+    const nodeId = generateTreeNodeId();
+    let parentId = parentNodeId;
+
+    if (!parentId && activeConversationPath.length > 0) {
+      parentId = activeConversationPath[activeConversationPath.length - 1];
+    }
+
+    nodes[nodeId] = {
+      id: nodeId,
+      role: role === 'assistant' ? 'assistant' : 'user',
+      content: cleanContent,
+      parent_id: parentId || null,
+      children: [],
+      create_time: Date.now() / 1000,
+    };
+
+    if (parentId && nodes[parentId]) {
+      if (!Array.isArray(nodes[parentId].children)) nodes[parentId].children = [];
+      nodes[parentId].children.push(nodeId);
+      activeConversationPath = [...getPathToNode(parentId), nodeId];
+    } else {
+      conversationTreeState.root_id = nodeId;
+      activeConversationPath = [nodeId];
+    }
+
+    return nodeId;
+  }
+
+  function updateTreeNodeContent(nodeId, content) {
+    if (!nodeId || !conversationTreeState || !conversationTreeState.nodes) return;
+    const node = conversationTreeState.nodes[nodeId];
+    if (!node) return;
+    node.content = content;
+  }
+
+  function getAssistantSiblingInfo(nodeId) {
+    if (!nodeId || !conversationTreeState || !conversationTreeState.nodes) return null;
+    const nodes = conversationTreeState.nodes;
+    const node = nodes[nodeId];
+    if (!node || node.role !== 'assistant') return null;
+
+    const parentId = node.parent_id;
+    if (!parentId || !nodes[parentId]) return null;
+
+    const children = Array.isArray(nodes[parentId].children) ? nodes[parentId].children : [];
+    const assistantSiblings = children.filter((childId) => {
+      const child = nodes[childId];
+      return child && child.role === 'assistant';
+    });
+
+    if (assistantSiblings.length === 0) return null;
+    const index = assistantSiblings.indexOf(nodeId);
+    if (index < 0) return null;
+
+    return {
+      siblings: assistantSiblings,
+      index,
+      total: assistantSiblings.length,
+    };
+  }
+
+  async function switchAssistantBranch(currentNodeId, step = 1) {
+    const info = getAssistantSiblingInfo(currentNodeId);
+    if (!info || info.total <= 1) return;
+
+    const nextIndex = (info.index + step + info.total) % info.total;
+    const nextNodeId = info.siblings[nextIndex];
+    if (!nextNodeId) return;
+
+    activeConversationPath = getPathToNode(nextNodeId);
+    await rebuildChatFromActivePath();
+    meta.textContent = `Switched branch ${nextIndex + 1}/${info.total}`;
+
+    if (currentLoadedConversation) {
+      await saveCurrentConversation();
+    }
+  }
+
+  function appendBranchButtonIfNeeded(actionsDiv, nodeId) {
+    const info = getAssistantSiblingInfo(nodeId);
+    if (!info || info.total <= 1) return;
+
+    const branchBtn = document.createElement('button');
+    branchBtn.className = 'bubble-branch-btn';
+    branchBtn.textContent = `⎇ ${info.index + 1}/${info.total}`;
+    branchBtn.title = 'Switch branch';
+    branchBtn.onclick = async (e) => {
+      e.stopPropagation();
+      await switchAssistantBranch(nodeId, 1);
+    };
+    actionsDiv.appendChild(branchBtn);
+  }
+
+  function getMessagesFromActivePath() {
+    if (!conversationTreeState || !conversationTreeState.nodes) return [];
+    const nodes = conversationTreeState.nodes;
+    return (activeConversationPath || [])
+      .map((nodeId) => {
+        const node = nodes[nodeId];
+        if (!node) return null;
+        const role = node.role === 'assistant' ? 'assistant' : 'user';
+        const content = (node.content || '').trim();
+        if (!content) return null;
+        return { role, content, treeNodeId: nodeId };
+      })
+      .filter(Boolean);
+  }
+
+  async function rebuildChatFromActivePath() {
+    chatlog.innerHTML = '';
+    messageIndex = 0;
+    messageMap.clear();
+
+    const pathMessages = getMessagesFromActivePath();
+    for (const msg of pathMessages) {
+      await addBubble(msg.content, msg.role, null, { treeNodeId: msg.treeNodeId });
+    }
+  }
+
+  function loadTreeStateFromConversation(conversationData) {
+    const incomingTree = conversationData && conversationData.conversation_tree;
+    const incomingPath = conversationData && conversationData.active_path;
+
+    if (
+      incomingTree
+      && typeof incomingTree === 'object'
+      && incomingTree.nodes
+      && typeof incomingTree.nodes === 'object'
+    ) {
+      conversationTreeState = incomingTree;
+      if (Array.isArray(incomingPath) && incomingPath.length > 0) {
+        activeConversationPath = incomingPath;
+      } else if (Array.isArray(incomingTree.active_path) && incomingTree.active_path.length > 0) {
+        activeConversationPath = incomingTree.active_path;
+      } else {
+        const fallbackMessages = Array.isArray(conversationData.messages) ? conversationData.messages : [];
+        const built = createConversationTreeFromMessages(fallbackMessages);
+        conversationTreeState = built.tree;
+        activeConversationPath = built.activePath;
+      }
+      return;
+    }
+
+    const fallbackMessages = Array.isArray(conversationData?.messages) ? conversationData.messages : [];
+    const built = createConversationTreeFromMessages(fallbackMessages);
+    conversationTreeState = built.tree;
+    activeConversationPath = built.activePath;
+  }
+
+  function playTypewriter(contentEl, fullText, onDone) {
+    const totalLength = fullText.length;
+    let cursor = 0;
+
+    contentEl.textContent = '';
+    contentEl.classList.add('typing');
+
+    function getChunkSize(length) {
+      if (length > 1800) return 10;
+      if (length > 900) return 6;
+      if (length > 350) return 3;
+      return 1;
+    }
+
+    const chunkSize = getChunkSize(totalLength);
+
+    function tick() {
+      if (cursor >= totalLength) {
+        contentEl.classList.remove('typing');
+        if (typeof onDone === 'function') onDone();
+        return;
+      }
+
+      const next = Math.min(totalLength, cursor + chunkSize);
+      contentEl.textContent += fullText.slice(cursor, next);
+      cursor = next;
+      chatlog.scrollTop = chatlog.scrollHeight;
+
+      const delay = totalLength > 1000 ? 8 : 14;
+      setTimeout(tick, delay);
+    }
+
+    tick();
+  }
+  
+  function addBubble(text, who, tokenInfo = null, renderOptions = {}) {
+    return new Promise((resolve) => {
+      const div = document.createElement("div");
+      div.className = "bubble " + (who === "user" ? "u" : "a");
+      const messageId = `msg_${messageIndex++}`;
+      div.dataset.messageId = messageId;
+      if (renderOptions.treeNodeId) {
+        div.dataset.treeNodeId = renderOptions.treeNodeId;
+      }
+
+      // Create wrapper for content and actions
+      const contentDiv = document.createElement("div");
+      contentDiv.className = "bubble-content";
+      div.appendChild(contentDiv);
+
+      // Add edit button
+      const actionsDiv = document.createElement("div");
+      actionsDiv.className = "bubble-actions";
+
+      if (who === "assistant") {
+        appendBranchButtonIfNeeded(actionsDiv, renderOptions.treeNodeId || null);
+
+        const regenBtn = document.createElement("button");
+        regenBtn.className = "bubble-regen-btn";
+        regenBtn.textContent = "↻";
+        regenBtn.title = "Regenerate from here";
+        regenBtn.onclick = async (e) => {
+          e.stopPropagation();
+          await regenerateFromMessage(messageId);
+        };
+        actionsDiv.appendChild(regenBtn);
+      }
+
+      const editBtn = document.createElement("button");
+      editBtn.className = "bubble-edit-btn";
+      editBtn.textContent = "✏️ Edit";
+      editBtn.onclick = (e) => {
+        e.stopPropagation();
+        startEditMessage(messageId, div);
+      };
+      actionsDiv.appendChild(editBtn);
+      div.appendChild(actionsDiv);
+
+      // Store message info
+      messageMap.set(messageId, {
+        role: who,
+        content: text,
+        element: div,
+        tokenInfo: tokenInfo,
+        treeNodeId: renderOptions.treeNodeId || null,
+      });
+
+      // 如果是assistant消息且开启了开发者模式，显示token详情
+      if (who === "assistant" && devModeEnabled && tokenInfo) {
+        const tokenDiv = document.createElement("div");
+        tokenDiv.className = "muted";
+        tokenDiv.style.cssText = "font-size:11px; margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1);";
+        tokenDiv.innerHTML = `<strong>Token Usage:</strong> prompt=${tokenInfo.prompt_tokens || 0}, completion=${tokenInfo.completion_tokens || 0}, total=${tokenInfo.total_tokens || 0}<br>` +
+          `<strong>Estimated:</strong> input=${tokenInfo.estimated_input_tokens || 0}, system_prompt=${tokenInfo.system_prompt_tokens || 0}`;
+        div.appendChild(tokenDiv);
+      }
+
+      const insertAfterEl = renderOptions.insertAfterEl;
+      if (insertAfterEl && insertAfterEl.parentNode === chatlog) {
+        if (insertAfterEl.nextSibling) {
+          chatlog.insertBefore(div, insertAfterEl.nextSibling);
+        } else {
+          chatlog.appendChild(div);
+        }
+      } else {
+        chatlog.appendChild(div);
+      }
+      chatlog.scrollTop = chatlog.scrollHeight;
+
+      const shouldTypewriter = !!renderOptions.typewriter;
+      if (shouldTypewriter) {
+        playTypewriter(contentDiv, text, () => resolve(messageId));
+      } else {
+        contentDiv.textContent = text;
+        resolve(messageId);
+      }
+    });
   }
   
   // Start editing a message
@@ -672,6 +1017,9 @@
       // Update message in map
       msgData.content = newContentTrimmed;
       messageMap.set(messageId, msgData);
+      if (msgData.treeNodeId) {
+        updateTreeNodeContent(msgData.treeNodeId, newContentTrimmed);
+      }
       
       // Update UI to show new content
       const bubbleEl = msgData.element;
@@ -685,6 +1033,21 @@
       // Recreate edit button
       const actionsDiv = document.createElement('div');
       actionsDiv.className = 'bubble-actions';
+
+      if (msgData.role === 'assistant') {
+        appendBranchButtonIfNeeded(actionsDiv, msgData.treeNodeId || null);
+
+        const regenBtn = document.createElement('button');
+        regenBtn.className = 'bubble-regen-btn';
+        regenBtn.textContent = '↻';
+        regenBtn.title = 'Regenerate from here';
+        regenBtn.onclick = async (e) => {
+          e.stopPropagation();
+          await regenerateFromMessage(messageId);
+        };
+        actionsDiv.appendChild(regenBtn);
+      }
+
       const editBtn = document.createElement('button');
       editBtn.className = 'bubble-edit-btn';
       editBtn.textContent = '✏️ Edit';
@@ -733,6 +1096,21 @@
     // Recreate edit button
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'bubble-actions';
+
+    if (msgData.role === 'assistant') {
+      appendBranchButtonIfNeeded(actionsDiv, msgData.treeNodeId || null);
+
+      const regenBtn = document.createElement('button');
+      regenBtn.className = 'bubble-regen-btn';
+      regenBtn.textContent = '↻';
+      regenBtn.title = 'Regenerate from here';
+      regenBtn.onclick = async (e) => {
+        e.stopPropagation();
+        await regenerateFromMessage(messageId);
+      };
+      actionsDiv.appendChild(regenBtn);
+    }
+
     const editBtn = document.createElement('button');
     editBtn.className = 'bubble-edit-btn';
     editBtn.textContent = '✏️ Edit';
@@ -751,6 +1129,79 @@
       tokenDiv.innerHTML = `<strong>Token Usage:</strong> prompt=${msgData.tokenInfo.prompt_tokens || 0}, completion=${msgData.tokenInfo.completion_tokens || 0}, total=${msgData.tokenInfo.total_tokens || 0}<br>` +
         `<strong>Estimated:</strong> input=${msgData.tokenInfo.estimated_input_tokens || 0}, system_prompt=${msgData.tokenInfo.system_prompt_tokens || 0}`;
       bubbleEl.appendChild(tokenDiv);
+    }
+  }
+
+  function collectChatMessagesFromDom() {
+    const messages = [];
+    chatlog.querySelectorAll('.bubble').forEach((bubble) => {
+      const role = bubble.classList.contains('u') ? 'user' : 'assistant';
+      const contentDiv = bubble.querySelector('.bubble-content');
+      const content = contentDiv ? contentDiv.textContent.trim() : '';
+      if (!content) return;
+      messages.push({
+        role,
+        content,
+        element: bubble,
+        messageId: bubble.dataset.messageId || null,
+        treeNodeId: bubble.dataset.treeNodeId || null,
+      });
+    });
+    return messages;
+  }
+
+  async function regenerateFromMessage(targetAssistantMessageId) {
+    const targetData = messageMap.get(targetAssistantMessageId);
+    if (!targetData || targetData.role !== 'assistant') return;
+    ensureConversationTreeInitialized();
+
+    const targetNodeId = targetData.treeNodeId;
+    const nodes = conversationTreeState?.nodes || {};
+    const targetNode = targetNodeId ? nodes[targetNodeId] : null;
+    if (!targetNode || targetNode.role !== 'assistant') {
+      meta.textContent = 'Regenerate failed: target node not found';
+      return;
+    }
+
+    const sourceUserNodeId = targetNode.parent_id;
+    const sourceUserNode = sourceUserNodeId ? nodes[sourceUserNodeId] : null;
+    if (!sourceUserNode || sourceUserNode.role !== 'user') {
+      meta.textContent = 'Regenerate failed: no preceding user message';
+      return;
+    }
+
+    const sourceUserMessage = (sourceUserNode.content || '').trim();
+    if (!sourceUserMessage) {
+      meta.textContent = 'Regenerate failed: empty source message';
+      return;
+    }
+
+    const sourcePath = getPathToNode(sourceUserNodeId);
+    const historyMessages = sourcePath
+      .slice(0, -1)
+      .map((nodeId) => nodes[nodeId])
+      .filter((node) => node && node.content)
+      .map((node) => ({ role: node.role, content: node.content }));
+
+    meta.textContent = 'Regenerating from selected turn...';
+    try {
+      const out = await api('/chat/regenerate', 'POST', {
+        user_message: sourceUserMessage,
+        history_messages: historyMessages,
+        user_profile: getUserProfile(),
+        session_id: 'default'
+      });
+
+      appendTreeNode('assistant', out.assistant_message, sourceUserNodeId);
+      await rebuildChatFromActivePath();
+
+      meta.textContent = 'Regenerated from selected turn';
+
+      if (currentLoadedConversation) {
+        await saveCurrentConversation();
+      }
+    } catch (e) {
+      meta.textContent = 'Regenerate failed: ' + e.message;
     }
   }
 
@@ -840,12 +1291,219 @@
 
   // Global dev mode flag
   let devModeEnabled = false;
+  let isLoadingSettings = false;
+  let autoSaveTimer = null;
+  let currentSettingsSnapshot = null;
+  let apiKeyEditMode = false;
+  let currentApiKeyLength = 0;
+  let currentApiKeyMask = '';
+
+  function getLocalizedText(key, fallback) {
+    if (window.i18n && typeof window.i18n.t === 'function') {
+      const translated = window.i18n.t(key);
+      if (translated && translated !== key) return translated;
+    }
+    return fallback;
+  }
+
+  function setApiKeyEditMode(editable) {
+    apiKeyEditMode = editable;
+    const apiKeyInput = document.getElementById("api_key");
+    const viewRow = document.getElementById("api-key-view-row");
+    const editRow = document.getElementById("api-key-edit-row");
+    const hintEl = document.getElementById("api-key-hint");
+    if (!apiKeyInput || !viewRow || !editRow || !hintEl) return;
+
+    if (editable) {
+      viewRow.style.display = 'none';
+      editRow.style.display = 'flex';
+      apiKeyInput.value = currentApiKeyMask;
+      apiKeyInput.placeholder = '';
+      hintEl.textContent = getLocalizedText('settings.api_key_edit_hint', 'Edit the key and click Save API Key.');
+      apiKeyInput.focus();
+      apiKeyInput.select();
+    } else {
+      viewRow.style.display = 'flex';
+      editRow.style.display = 'none';
+      apiKeyInput.value = '';
+      hintEl.textContent = getLocalizedText('settings.api_key_readonly_hint', 'Click Edit to change API key.');
+    }
+  }
+
+  function renderApiKeyMaskedView() {
+    const maskedEl = document.getElementById("api_key_masked");
+    if (!maskedEl) return;
+    if (currentApiKeyLength > 0) {
+      const fullMask = '*'.repeat(currentApiKeyLength);
+      const shortened = currentApiKeyLength > 18
+        ? `${fullMask.slice(0, 18)}… (${currentApiKeyLength})`
+        : fullMask;
+      maskedEl.textContent = shortened;
+    } else {
+      maskedEl.textContent = getLocalizedText('settings.api_key_not_set', '(not set)');
+    }
+  }
+
+  function getMaskedApiKey(lengthOrMask) {
+    if (typeof lengthOrMask === 'number' && lengthOrMask > 0) {
+      return '*'.repeat(lengthOrMask);
+    }
+    if (typeof lengthOrMask === 'string' && lengthOrMask.length > 0) {
+      return '*'.repeat(lengthOrMask.length);
+    }
+    return '';
+  }
+
+  function collectSettingsUpdates() {
+    const base_url = document.getElementById("base_url").value.trim();
+    const model = getSelectedModel();
+    const max_input_tokens = parseInt(document.getElementById("max_input_tokens").value) || 2000;
+    const max_output_tokens = parseInt(document.getElementById("max_output_tokens").value) || 800;
+    const temperature = parseFloat(document.getElementById("temperature").value) || 0.7;
+    const dev_mode = document.getElementById("dev_mode").checked;
+    const history_strategy = "sliding_window";
+    const compressionThresholdEl = document.getElementById("compression_threshold");
+    const compressionTargetEl = document.getElementById("compression_target");
+    const compression_threshold = compressionThresholdEl ? (parseInt(compressionThresholdEl.value) || 1000) : 1000;
+    const compression_target = compressionTargetEl ? (parseInt(compressionTargetEl.value) || 200) : 200;
+
+    const updates = {
+      provider: "openai_compatible",
+      base_url,
+      model,
+      max_input_tokens,
+      max_output_tokens,
+      temperature,
+      dev_mode,
+      history_strategy,
+      compression_threshold,
+      compression_target,
+      language: window.i18n ? window.i18n.getLanguage() : 'zh'
+    };
+
+    return updates;
+  }
+
+  function validateSettingsInput(updates) {
+    if (updates.max_input_tokens < 100 || updates.max_input_tokens > 128000) {
+      return "Max Input Tokens must be between 100 and 128000";
+    }
+    if (updates.max_output_tokens < 100 || updates.max_output_tokens > 32000) {
+      return "Max Output Tokens must be between 100 and 32000";
+    }
+    if (updates.temperature < 0 || updates.temperature > 2) {
+      return "Temperature must be between 0 and 2";
+    }
+    return null;
+  }
+
+  async function saveSettingsAutomatically() {
+    if (isLoadingSettings) return;
+    const status = document.getElementById("status");
+    try {
+      const updates = collectSettingsUpdates();
+      const validationError = validateSettingsInput(updates);
+      if (validationError) {
+        status.textContent = validationError;
+        return;
+      }
+
+      status.textContent = getLocalizedText('settings.saving', 'Saving...');
+      await api("/settings", "POST", updates);
+      devModeEnabled = updates.dev_mode;
+      currentSettingsSnapshot = { ...updates };
+
+      status.textContent = getLocalizedText('settings.auto_saved', 'Settings auto-saved');
+    } catch (e) {
+      status.textContent = `${getLocalizedText('settings.auto_save_failed', 'Auto-save failed')}: ${e.message}`;
+    }
+  }
+
+  function scheduleAutoSave() {
+    if (isLoadingSettings) return;
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => {
+      saveSettingsAutomatically();
+    }, 450);
+  }
+
+  function bindAutoSaveEvents() {
+    const inputIds = [
+      "base_url",
+      "model",
+      "model_custom",
+      "max_input_tokens",
+      "max_output_tokens",
+      "temperature",
+      "compression_threshold",
+      "compression_target"
+    ];
+
+    inputIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const eventName = (el.tagName === 'SELECT') ? 'change' : 'input';
+      el.addEventListener(eventName, scheduleAutoSave);
+    });
+
+    document.getElementById("dev_mode").addEventListener('change', scheduleAutoSave);
+    document.querySelectorAll('input[name="history_strategy"]').forEach(el => {
+      el.addEventListener('change', scheduleAutoSave);
+    });
+
+    document.getElementById("edit-api-key").addEventListener('click', () => {
+      if (!apiKeyEditMode) {
+        setApiKeyEditMode(true);
+      }
+    });
+
+    document.getElementById("save-api-key").addEventListener('click', saveApiKeyManually);
+    document.getElementById("cancel-api-key").addEventListener('click', () => {
+      setApiKeyEditMode(false);
+    });
+  }
+
+  async function saveApiKeyManually() {
+    const status = document.getElementById("status");
+    const input = document.getElementById("api_key");
+    const newApiKey = (input.value || '').trim();
+
+    if (!apiKeyEditMode) return;
+
+    if (!newApiKey) {
+      status.textContent = getLocalizedText('settings.api_key_empty', 'API key cannot be empty');
+      return;
+    }
+
+    if (newApiKey === currentApiKeyMask) {
+      setApiKeyEditMode(false);
+      status.textContent = getLocalizedText('settings.api_key_unchanged', 'API key unchanged');
+      return;
+    }
+
+    try {
+      status.textContent = getLocalizedText('settings.saving', 'Saving...');
+      await api('/settings', 'POST', { api_key: newApiKey });
+      currentApiKeyLength = newApiKey.length;
+      currentApiKeyMask = '*'.repeat(currentApiKeyLength);
+      renderApiKeyMaskedView();
+      setApiKeyEditMode(false);
+      status.textContent = getLocalizedText('settings.api_key_saved', 'API key saved');
+    } catch (e) {
+      status.textContent = `${getLocalizedText('settings.api_key_save_failed', 'Failed to save API key')}: ${e.message}`;
+    }
+  }
 
   async function loadSettings() {
+    isLoadingSettings = true;
     try {
       const s = await api("/settings");
       document.getElementById("base_url").value = s.base_url || "";
-      document.getElementById("api_key").value = "";
+      const apiKeyLength = typeof s.api_key_length === 'number' ? s.api_key_length : (s.api_key ? s.api_key.length : 0);
+      currentApiKeyLength = apiKeyLength;
+      currentApiKeyMask = getMaskedApiKey(apiKeyLength);
+      renderApiKeyMaskedView();
+      setApiKeyEditMode(false);
       // Set model dropdown menu
       const modelSelect = document.getElementById("model");
       const modelCustom = document.getElementById("model_custom");
@@ -877,18 +1535,39 @@
       devModeEnabled = s.dev_mode || false;
       
       // Load history strategy
-      const strategy = s.history_strategy || "compression";
-      document.querySelector(`input[name="history_strategy"][value="${strategy}"]`).checked = true;
-      document.getElementById("compression_threshold").value = s.compression_threshold || "1000";
-      document.getElementById("compression_target").value = s.compression_target || "200";
+      const strategy = "sliding_window";
+      const strategyEl = document.querySelector('input[name="history_strategy"][value="sliding_window"]');
+      if (strategyEl) strategyEl.checked = true;
+      const compressionThresholdEl = document.getElementById("compression_threshold");
+      const compressionTargetEl = document.getElementById("compression_target");
+      if (compressionThresholdEl) compressionThresholdEl.value = s.compression_threshold || "1000";
+      if (compressionTargetEl) compressionTargetEl.value = s.compression_target || "200";
       toggleHistoryStrategyOptions(strategy);
+
+      // 强制持久化为滑动窗口策略（兼容旧设置是 compression 的情况）
+      if (s.history_strategy !== "sliding_window") {
+        await api('/settings', 'POST', { history_strategy: 'sliding_window' });
+      }
       
       // Update system prompt tokens info
       if (s.system_prompt) {
         updateSystemPromptTokensInfo(s.system_prompt);
       }
       
-      status.textContent = "Loaded settings (api_key hidden)";
+      status.textContent = getLocalizedText('settings.loaded', 'Loaded settings');
+      currentSettingsSnapshot = {
+        provider: "openai_compatible",
+        base_url: s.base_url || "",
+        model: s.model || "",
+        max_input_tokens: s.max_input_tokens || 2000,
+        max_output_tokens: s.max_output_tokens || 800,
+        temperature: s.temperature !== undefined ? s.temperature : 0.7,
+        dev_mode: s.dev_mode || false,
+        history_strategy: "sliding_window",
+        compression_threshold: s.compression_threshold || 1000,
+        compression_target: s.compression_target || 200,
+        language: s.language || (window.i18n ? window.i18n.getLanguage() : 'zh')
+      };
       
       // Load and apply language setting
       if (s.language && window.i18n) {
@@ -903,6 +1582,8 @@
       }
     } catch (e) {
       status.textContent = "Backend not connected. Please start the backend.";
+    } finally {
+      isLoadingSettings = false;
     }
   }
 
@@ -1001,89 +1682,15 @@
     return modelSelect.value;
   }
 
-  document.getElementById("save").onclick = async () => {
-    const status = document.getElementById("status");
-    try {
-      const base_url = document.getElementById("base_url").value.trim();
-      const api_key = document.getElementById("api_key").value.trim();
-      const model = getSelectedModel();
-      const max_input_tokens = parseInt(document.getElementById("max_input_tokens").value) || 2000;
-      const max_output_tokens = parseInt(document.getElementById("max_output_tokens").value) || 800;
-      const temperature = parseFloat(document.getElementById("temperature").value) || 0.7;
-      const dev_mode = document.getElementById("dev_mode").checked;
-      const history_strategy = document.querySelector('input[name="history_strategy"]:checked').value;
-      const compression_threshold = parseInt(document.getElementById("compression_threshold").value) || 1000;
-      const compression_target = parseInt(document.getElementById("compression_target").value) || 200;
-      
-      // 获取当前设置，保留用户未修改的字段
-      const current = await api("/settings");
-      
-      // 只更新用户填写的字段
-      const updates = {
-        provider: "openai_compatible",
-        base_url: base_url || current.base_url,
-        model: model || current.model,
-        max_input_tokens,
-        max_output_tokens,
-        temperature,
-        dev_mode,
-        history_strategy,
-        compression_threshold,
-        compression_target,
-        language: window.i18n ? window.i18n.getLanguage() : 'zh'
-      };
-      
-      // 只有用户新填写了API key才更新（避免保存虚假的"********"）
-      if (api_key) {
-        updates.api_key = api_key;
-      } else if (current.api_key && current.api_key !== "********") {
-        // 保留现有的真实API key
-        updates.api_key = current.api_key;
-      }
-      
-      // 验证token和temperature范围（但不强制base_url和model）
-      if (max_input_tokens < 100 || max_input_tokens > 128000) {
-        status.textContent = "Max Input Tokens must be between 100 and 128000";
-        return;
-      }
-      
-      if (max_output_tokens < 100 || max_output_tokens > 32000) {
-        status.textContent = "Max Output Tokens must be between 100 and 32000";
-        return;
-      }
-      
-      if (temperature < 0 || temperature > 2) {
-        status.textContent = "Temperature must be between 0 and 2";
-        return;
-      }
-      
-      status.textContent = "Saving...";
-      await api("/settings", "POST", updates);
-      devModeEnabled = dev_mode;
-      status.textContent = "Settings saved successfully!";
-    } catch (e) {
-      status.textContent = "Save failed: " + e.message;
-    }
-  };
-
-
-  document.getElementById("health").onclick = async () => {
-    const status = document.getElementById("status");
-    try {
-      status.textContent = "Testing...";
-      const result = await api("/health");
-      status.textContent = "✓ Backend OK";
-    } catch (e) {
-      status.textContent = "✗ Backend connection failed: " + e.message;
-    }
-  };
+  bindAutoSaveEvents();
 
   // Send message function
   async function sendMessage() {
     const msg = document.getElementById("msg").value.trim();
     if (!msg) return;
     document.getElementById("msg").value = "";
-    addBubble(msg, "user");
+    const userNodeId = appendTreeNode('user', msg);
+    await addBubble(msg, "user", null, { treeNodeId: userNodeId });
     meta.textContent = "Waiting for reply...";
     try {
       // 获取用户信息
@@ -1094,7 +1701,8 @@
         session_id: "default",
         user_profile: userProfile
       });
-      addBubble(out.assistant_message, "assistant", out.token_info);
+      const assistantNodeId = appendTreeNode('assistant', out.assistant_message, userNodeId);
+      await addBubble(out.assistant_message, "assistant", out.token_info, { typewriter: true, treeNodeId: assistantNodeId });
       
       // 构建状态信息
       let statusText = `Mode=${out.mode} • Memory cards=${out.used_memory_cards.length}`;
@@ -1136,7 +1744,8 @@
       await saveCurrentConversation();
       
     } catch (e) {
-      addBubble("Backend error: " + e.message, "assistant");
+      const errorNodeId = appendTreeNode('assistant', "Backend error: " + e.message, userNodeId);
+      await addBubble("Backend error: " + e.message, "assistant", null, { treeNodeId: errorNodeId });
       meta.textContent = "Request failed";
     }
   }
@@ -1165,6 +1774,7 @@
     // Reset message tracking
     messageIndex = 0;
     messageMap.clear();
+    resetConversationTree();
     
     // Hide loaded conversation UI
     loadedConvHeader.style.display = 'none';
@@ -1198,12 +1808,43 @@
   let currentSelectedTemplateId = null;
   let currentTemplateContent = '';
   let currentIsBuiltIn = false;  // 标记当前选中的是否为内置模板
+
+  function normalizePromptText(text) {
+    return (text || '').replace(/\r\n/g, '\n').trim();
+  }
   
   // 加载模板列表
   async function loadTemplatesList() {
     try {
       const data = await api('/settings/system-prompt/templates');
       const templates = data.templates || [];
+
+      let activeTemplateId = currentSelectedTemplateId;
+      if (!activeTemplateId) {
+        try {
+          const currentPromptResp = await api('/settings/system-prompt');
+          const currentPrompt = normalizePromptText(currentPromptResp.system_prompt || '');
+          if (currentPrompt) {
+            const details = await Promise.all(
+              templates.map(async (template) => {
+                try {
+                  const detail = await api(`/settings/system-prompt/templates/${template.id}`);
+                  return { id: template.id, content: normalizePromptText(detail.content || '') };
+                } catch (e) {
+                  return { id: template.id, content: '' };
+                }
+              })
+            );
+            const matched = details.find(item => item.content && item.content === currentPrompt);
+            if (matched) {
+              activeTemplateId = matched.id;
+              currentSelectedTemplateId = matched.id;
+            }
+          }
+        } catch (e) {
+          console.warn('[UI] Failed to detect active template:', e.message);
+        }
+      }
       
       // 构建列表HTML
       let listHtml = '';
@@ -1211,10 +1852,11 @@
       // 构建所有模板（内置和自定义）
       templates.forEach(template => {
         const isBuiltIn = template.is_builtin;
+        const activeClass = template.id === activeTemplateId ? ' active' : '';
         // 只有自定义模板才显示删除按钮
         const deleteButtonHtml = isBuiltIn ? '' : `<button class="system-prompt-delete-btn" onclick="event.stopPropagation(); deleteSystemPromptTemplate('${template.id}', ${isBuiltIn})">Delete</button>`;
         listHtml += `
-          <div class="system-prompt-item" data-id="${template.id}" data-builtin="${isBuiltIn}">
+          <div class="system-prompt-item${activeClass}" data-id="${template.id}" data-builtin="${isBuiltIn}">
             <div class="system-prompt-item-name">${escapeHtml(template.title)}</div>
             <div class="system-prompt-item-actions">
               ${deleteButtonHtml}
@@ -1303,7 +1945,12 @@
         currentTemplateContent = data.content;
         systemPromptInput.value = data.content;
         customPromptName.value = data.title;
-        systemPromptStatus.textContent = `Loaded: ${data.title}`;
+        
+        // 选择模板后立即生效（同步保存到后端 settings）
+        await api('/settings/system-prompt', 'POST', {
+          system_prompt: data.content
+        });
+        systemPromptStatus.textContent = `✓ Applied: ${data.title}`;
         
         // 更新system prompt tokens显示
         updateSystemPromptTokensInfo(data.content);
@@ -1462,6 +2109,15 @@
   let conversationsList = [];
   let selectedConversationId = null;
   let currentLoadedConversation = null;  // Track currently loaded conversation
+
+  function ensureChatInputReady(focus = false) {
+    const msgInput = document.getElementById('msg');
+    if (!msgInput) return;
+    msgInput.disabled = false;
+    msgInput.style.pointerEvents = 'auto';
+    msgInput.style.opacity = '1';
+    if (focus) msgInput.focus();
+  }
   
   // Open conversations window
   openConversationsBtn.onclick = () => {
@@ -1479,6 +2135,7 @@
     // Reset message tracking
     messageIndex = 0;
     messageMap.clear();
+    resetConversationTree();
     
     // Hide loaded conversation UI
     loadedConvHeader.style.display = 'none';
@@ -1513,12 +2170,14 @@
   // Close conversations window
   closeConversationsBtn.onclick = () => {
     conversationsModal.classList.remove('show');
+    ensureChatInputReady(false);
   };
   
   // Click modal background to close
   conversationsModal.onclick = (e) => {
     if (e.target === conversationsModal) {
       conversationsModal.classList.remove('show');
+      ensureChatInputReady(false);
     }
   };
   
@@ -1613,34 +2272,13 @@
   
   // Helper function to save current conversation to file
   async function saveCurrentConversation() {
-    const messages = [];
-    let messageIndex = 0;
-    chatlog.querySelectorAll('.bubble').forEach(bubble => {
-      // Note: addBubble uses 'u' for user, 'a' for assistant
-      const role = bubble.classList.contains('u') ? 'user' : 'assistant';
-      
-      // Extract only the message content from .bubble-content div
-      let content = '';
-      const contentDiv = bubble.querySelector('.bubble-content');
-      if (contentDiv) {
-        content = contentDiv.textContent.trim();
-      } else {
-        // Fallback: try to get text excluding token info and buttons
-        content = bubble.textContent;
-        if (role === 'assistant') {
-          const tokenDiv = bubble.querySelector('.muted');
-          if (tokenDiv) {
-            content = content.replace(tokenDiv.textContent, '').trim();
-          }
-        }
-      }
-      
-      messages.push({ 
-        id: `msg_${messageIndex++}`,
-        role, 
-        content 
-      });
-    });
+    ensureConversationTreeInitialized();
+    const activePathMessages = getMessagesFromActivePath();
+    const messages = activePathMessages.map((m, idx) => ({
+      id: `msg_${idx}`,
+      role: m.role,
+      content: m.content,
+    }));
     
     if (messages.length === 0) {
       console.log('[DEBUG] No messages to save');
@@ -1661,7 +2299,9 @@
         body: JSON.stringify({
           conversation_id: conversationId,
           title: title,
-          messages: messages
+          messages: messages,
+          conversation_tree: conversationTreeState,
+          active_path: activeConversationPath,
         })
       });
       
@@ -1669,7 +2309,9 @@
         currentLoadedConversation = {
           conversation_id: result.conversation_id,
           title: result.title,
-          messages: messages
+          messages: messages,
+          conversation_tree: conversationTreeState,
+          active_path: activeConversationPath,
         };
         loadedConvTitleHeader.value = result.title;
         loadedConvMetaHeader.textContent = `ID: ${result.conversation_id}`;
@@ -1757,7 +2399,8 @@
   
   // Select and load a conversation
   async function deleteConversation(conversationId) {
-    if (!confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+    const confirmed = await showConfirm('Are you sure you want to delete this conversation? This action cannot be undone.');
+    if (!confirmed) {
       return;
     }
     
@@ -1885,19 +2528,8 @@
         statusEl.textContent = `✓ Loaded ${result.message_count} messages to context`;
       }
       
-      // Clear current chat
-      chatlog.innerHTML = '';
-      
-      // Reset message tracking
-      messageIndex = 0;
-      messageMap.clear();
-      
-      // Add messages to chat display
-      conversationData.messages.forEach(msg => {
-        if (msg.role === 'user' || msg.role === 'assistant') {
-          addBubble(msg.content, msg.role === 'user' ? 'user' : 'assistant');
-        }
-      });
+      loadTreeStateFromConversation(conversationData);
+      await rebuildChatFromActivePath();
       
       // Update current loaded conversation tracker
       currentLoadedConversation = conversationData;
@@ -1928,12 +2560,8 @@
       console.error('[DEBUG] Exception:', e);
       statusEl.textContent = 'Failed to load: ' + e.message;
       // Still show the messages even if context sync failed
-      chatlog.innerHTML = '';
-      conversationData.messages.forEach(msg => {
-        if (msg.role === 'user' || msg.role === 'assistant') {
-          addBubble(msg.content, msg.role === 'user' ? 'user' : 'assistant');
-        }
-      });
+      loadTreeStateFromConversation(conversationData);
+      await rebuildChatFromActivePath();
       conversationsModal.classList.remove('show');
       
       // Enable and focus input box even on error
@@ -1956,10 +2584,10 @@
   const closeMemoryBtn = document.getElementById('close-memory-modal');
   
   // Open memory window
-  openMemoryBtn.onclick = () => {
+  openMemoryBtn.onclick = async () => {
     memoryModal.classList.add('show');
-    loadPlugins();
-    loadMemory();
+    await loadPlugins();
+    await loadMemory();
   };
   
   // Close memory window
@@ -1982,6 +2610,7 @@
       }
       if (conversationsModal.classList.contains('show')) {
         conversationsModal.classList.remove('show');
+        ensureChatInputReady(false);
       }
       if (systemPromptModal.classList.contains('show')) {
         systemPromptModal.classList.remove('show');
@@ -1993,6 +2622,272 @@
   
   let currentPluginId = null;
   let availablePlugins = [];
+  let localModelStatusCache = null;
+
+  function getPluginDisplayName(pluginId) {
+    if (pluginId === 'vector_memory') return getLocalizedText('memory.mode_vector', 'Vector Keyword Matching');
+    if (pluginId === 'local_rerank') return getLocalizedText('memory.mode_local', 'Local Small Model Rerank');
+    return pluginId;
+  }
+
+  function getPluginDescription(pluginId, backendDescription = '') {
+    if (pluginId === 'vector_memory') {
+      return getLocalizedText('memory.mode_vector_desc', 'Use vector keyword matching and lightweight reranking, suitable for fast retrieval scenarios.');
+    }
+    if (pluginId === 'local_rerank') {
+      return getLocalizedText('memory.mode_local_desc', 'Use a local small model for semantic matching and reranking, suitable for offline or low-latency scenarios.');
+    }
+    return backendDescription || '';
+  }
+
+  function renderPluginMeta(pluginInfo) {
+    const infoEl = document.getElementById('plugin-info');
+    const featuresEl = document.getElementById('plugin-features');
+    if (!infoEl || !featuresEl) return;
+
+    if (!pluginInfo) {
+      infoEl.textContent = getLocalizedText('memory.mode_info_unavailable', 'Plugin info unavailable');
+      featuresEl.innerHTML = '';
+      return;
+    }
+
+    const displayName = getPluginDisplayName(pluginInfo.id) || pluginInfo.name || pluginInfo.id;
+    const desc = getPluginDescription(pluginInfo.id, pluginInfo.description || '');
+    infoEl.textContent = `${displayName}${desc ? ` · ${desc}` : ''}`;
+
+    const tags = [];
+    if (pluginInfo.supports_vector_search) tags.push(getLocalizedText('memory.feature_semantic', 'Semantic Match'));
+    if (pluginInfo.supports_temporal) tags.push(getLocalizedText('memory.feature_temporal', 'Temporal'));
+    if (pluginInfo.supports_graph) tags.push(getLocalizedText('memory.feature_graph', 'Graph'));
+    tags.push(`v${pluginInfo.version || '1.0.0'}`);
+
+    featuresEl.innerHTML = tags
+      .map(t => `<span class="memory-tag">${escapeHtml(t)}</span>`)
+      .join('');
+  }
+
+  function updateLocalModelPanelVisibility() {
+    const panel = document.getElementById('local-model-panel');
+    if (!panel) return;
+    panel.style.display = currentPluginId === 'local_rerank' ? 'block' : 'none';
+  }
+
+  async function loadPlugins() {
+    const selectEl = document.getElementById('memory-plugin-select');
+    const memoryStatus = document.getElementById('memory-status');
+    if (!selectEl) return;
+
+    try {
+      const [pluginsResp, activeResp, settingsResp] = await Promise.all([
+        api('/memory/plugins'),
+        api('/memory/plugins/active'),
+        api('/settings')
+      ]);
+
+      availablePlugins = pluginsResp.plugins || [];
+
+      // 仅展示向量模式（隐藏 local_rerank，避免用户安装 PyTorch 依赖）
+      const allowedPluginIds = ['vector_memory'];
+      const visiblePlugins = availablePlugins.filter(p => allowedPluginIds.includes(p.id));
+
+      // 如果后端未返回其中某个插件，补一个兜底选项（避免空白）
+      const existingIds = new Set(visiblePlugins.map(p => p.id));
+      for (const pluginId of allowedPluginIds) {
+        if (!existingIds.has(pluginId)) {
+          visiblePlugins.push({
+            id: pluginId,
+            name: getPluginDisplayName(pluginId),
+            description: ''
+          });
+        }
+      }
+
+      selectEl.innerHTML = visiblePlugins
+        .map(p => `<option value="${p.id}">${escapeHtml(getPluginDisplayName(p.id) || p.name || p.id)}</option>`)
+        .join('');
+
+      const activePluginId = activeResp?.id || visiblePlugins[0]?.id || 'vector_memory';
+      const savedPluginId = settingsResp?.memory_plugin;
+      let targetPluginId = activePluginId;
+      if (savedPluginId && visiblePlugins.some(p => p.id === savedPluginId)) {
+        targetPluginId = savedPluginId;
+      }
+
+      if (targetPluginId !== activePluginId) {
+        try {
+          const switched = await api('/memory/plugins/switch', 'POST', { plugin_id: targetPluginId });
+          if (switched?.success) {
+            targetPluginId = switched.active_plugin || targetPluginId;
+          }
+        } catch (e) {
+          console.warn('[UI] Failed to restore memory plugin from settings:', e.message);
+          targetPluginId = activePluginId;
+        }
+      }
+
+      // 若当前激活插件不可见（如 local_rerank），强制切回 vector_memory 并持久化
+      if (!visiblePlugins.some(p => p.id === targetPluginId) && visiblePlugins.length > 0) {
+        const fallbackPluginId = visiblePlugins[0].id;
+        try {
+          const switched = await api('/memory/plugins/switch', 'POST', { plugin_id: fallbackPluginId });
+          if (switched?.success) {
+            targetPluginId = switched.active_plugin || fallbackPluginId;
+            await api('/settings', 'POST', { memory_plugin: targetPluginId });
+          } else {
+            targetPluginId = fallbackPluginId;
+          }
+        } catch (e) {
+          console.warn('[UI] Failed to fallback memory plugin:', e.message);
+          targetPluginId = fallbackPluginId;
+        }
+      }
+
+      currentPluginId = targetPluginId;
+
+      if ([...selectEl.options].some(o => o.value === currentPluginId)) {
+        selectEl.value = currentPluginId;
+      } else if (visiblePlugins.length > 0) {
+        selectEl.value = visiblePlugins[0].id;
+        currentPluginId = visiblePlugins[0].id;
+      }
+
+      const activePluginInfo = availablePlugins.find(p => p.id === currentPluginId)
+        || visiblePlugins.find(p => p.id === currentPluginId);
+      renderPluginMeta(activePluginInfo);
+      updateLocalModelPanelVisibility();
+
+      if (memoryStatus) {
+        memoryStatus.textContent = `${getLocalizedText('memory.mode_current', 'Current')}: ${getPluginDisplayName(currentPluginId)}`;
+      }
+
+      if (currentPluginId === 'local_rerank') {
+        await loadLocalModelStatus();
+      }
+    } catch (e) {
+      if (memoryStatus) {
+        memoryStatus.textContent = `${getLocalizedText('memory.mode_load_failed', 'Failed to load memory modes')}: ${e.message}`;
+      }
+    }
+  }
+
+  function renderLocalModelStatus(status) {
+    const statusEl = document.getElementById('local-model-status');
+    const pathEl = document.getElementById('local-model-path');
+    if (!statusEl || !pathEl) return;
+
+    if (!status || status.error) {
+      statusEl.textContent = `${getLocalizedText('memory.local_model_status_error', 'Model status unavailable')}${status?.error ? ': ' + status.error : ''}`;
+      pathEl.textContent = getLocalizedText('memory.local_model_path_unknown', 'Model path unknown');
+      return;
+    }
+
+    const isReady = !!status.is_model_ready;
+    const backend = status.encoder_backend || 'unknown';
+    const activePlugin = status.active_plugin || currentPluginId;
+    const activeText = activePlugin === 'local_rerank'
+      ? getLocalizedText('memory.local_model_mode_active', 'local_rerank active')
+      : getLocalizedText('memory.local_model_mode_inactive', 'local_rerank inactive');
+
+    statusEl.textContent = `${activeText} · ${isReady ? getLocalizedText('memory.local_model_ready', 'MiniLM loaded') : getLocalizedText('memory.local_model_fallback', 'Using fallback hash encoder')} · backend=${backend}`;
+
+    const modelPath = status.local_model_path || (status.existing_local_dirs && status.existing_local_dirs[0]) || '';
+    if (modelPath) {
+      pathEl.textContent = `${getLocalizedText('memory.local_model_path_label', 'Model Path')}: ${modelPath}`;
+    } else {
+      pathEl.textContent = getLocalizedText('memory.local_model_not_downloaded', 'Local model not downloaded yet.');
+    }
+  }
+
+  async function loadLocalModelStatus() {
+    try {
+      const resp = await api('/memory/local-model/status');
+      localModelStatusCache = resp;
+      renderLocalModelStatus(resp);
+    } catch (e) {
+      localModelStatusCache = { error: e.message };
+      renderLocalModelStatus(localModelStatusCache);
+    }
+  }
+
+  async function downloadLocalModel(forceDownload = false) {
+    const statusEl = document.getElementById('memory-status');
+    const manageBtn = document.getElementById('manage-local-model');
+
+    if (manageBtn) manageBtn.disabled = true;
+    if (statusEl) statusEl.textContent = getLocalizedText('memory.local_model_downloading', 'Downloading local model...');
+
+    try {
+      const shouldForce = !!(localModelStatusCache && localModelStatusCache.local_model_exists);
+      const resp = await api('/memory/local-model/download', 'POST', { force_download: shouldForce || forceDownload });
+      if (!resp.success) {
+        throw new Error(resp.error || 'download failed');
+      }
+
+      await loadPlugins();
+      await loadLocalModelStatus();
+
+      if (statusEl) {
+        statusEl.textContent = getLocalizedText('memory.local_model_download_ok', 'Local model is ready.');
+      }
+    } catch (e) {
+      if (statusEl) {
+        statusEl.textContent = `${getLocalizedText('memory.local_model_download_failed', 'Model download failed')}: ${e.message}`;
+      }
+    } finally {
+      if (manageBtn) manageBtn.disabled = false;
+    }
+  }
+
+  document.getElementById('manage-local-model')?.addEventListener('click', () => {
+    downloadLocalModel(false);
+  });
+
+  document.getElementById('memory-plugin-select')?.addEventListener('change', async (e) => {
+    const selectEl = e.target;
+    const nextPluginId = selectEl.value;
+    const memoryStatus = document.getElementById('memory-status');
+
+    if (!nextPluginId || nextPluginId === currentPluginId) return;
+
+    selectEl.disabled = true;
+    if (memoryStatus) memoryStatus.textContent = getLocalizedText('memory.mode_switching', 'Switching memory mode...');
+
+    try {
+      const resp = await api('/memory/plugins/switch', 'POST', { plugin_id: nextPluginId });
+      if (!resp.success) {
+        throw new Error('Switch plugin failed');
+      }
+
+      currentPluginId = resp.active_plugin || nextPluginId;
+      if ([...selectEl.options].some(o => o.value === currentPluginId)) {
+        selectEl.value = currentPluginId;
+      }
+
+      // 同步保存到后端 settings，确保重启后仍保留该模式
+      await api('/settings', 'POST', { memory_plugin: currentPluginId });
+
+      const activePluginInfo = availablePlugins.find(p => p.id === currentPluginId);
+      renderPluginMeta(activePluginInfo);
+      updateLocalModelPanelVisibility();
+      if (currentPluginId === 'local_rerank') {
+        await loadLocalModelStatus();
+      }
+      await loadMemory();
+
+      if (memoryStatus) {
+        memoryStatus.textContent = `${getLocalizedText('memory.mode_switched', 'Switched to')}: ${getPluginDisplayName(currentPluginId)}`;
+      }
+    } catch (err) {
+      if (memoryStatus) {
+        memoryStatus.textContent = `${getLocalizedText('memory.mode_switch_failed', 'Switch failed')}: ${err.message}`;
+      }
+      if ([...selectEl.options].some(o => o.value === currentPluginId)) {
+        selectEl.value = currentPluginId;
+      }
+    } finally {
+      selectEl.disabled = false;
+    }
+  });
   
   // Tab switching functionality
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -2617,8 +3512,27 @@
   window.addEventListener('languageChanged', (event) => {
     const lang = event.detail.language;
     console.log('[UI] Language changed event received:', lang);
-    // 更新页面上的动态内容
-    // 例如：更新 toast, 确认对话等
+    renderApiKeyMaskedView();
+    const hintEl = document.getElementById("api-key-hint");
+    if (hintEl) {
+      hintEl.textContent = apiKeyEditMode
+        ? getLocalizedText('settings.api_key_edit_hint', 'Edit the key and click Save API Key.')
+        : getLocalizedText('settings.api_key_readonly_hint', 'Click Edit to change API key.');
+    }
+
+    // Refresh memory plugin UI texts after language switch
+    const pluginInfo = availablePlugins.find(p => p.id === currentPluginId);
+    if (pluginInfo || currentPluginId) {
+      renderPluginMeta(pluginInfo || { id: currentPluginId, name: getPluginDisplayName(currentPluginId) });
+      const memoryStatus = document.getElementById('memory-status');
+      if (memoryStatus && currentPluginId) {
+        memoryStatus.textContent = `${getLocalizedText('memory.mode_current', 'Current')}: ${getPluginDisplayName(currentPluginId)}`;
+      }
+    }
+
+    if (localModelStatusCache) {
+      renderLocalModelStatus(localModelStatusCache);
+    }
   });
 </script>
 </body>

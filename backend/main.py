@@ -20,6 +20,7 @@ from memory_plugin_api import (
     DeleteMemoryRequest,
     SwitchPluginRequest,
     PluginConfigRequest,
+    LocalModelDownloadRequest,
     EvaluateMemoriesRequest,
     UpdateMemoryImportanceRequest
 )
@@ -66,14 +67,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Platform-aware data directory
+def get_app_data_dir() -> str:
+    """Get platform-specific app data directory."""
+    if getattr(sys, 'frozen', False):
+        # Running as packaged executable
+        home = os.path.expanduser("~")
+        if sys.platform == "win32":
+            return os.path.join(home, "AppData", "Local", "AURORA-Local-Agent")
+        elif sys.platform == "darwin":
+            return os.path.join(home, "Library", "Application Support", "AURORA-Local-Agent")
+        else:  # linux and others
+            return os.path.join(home, ".local", "share", "AURORA-Local-Agent")
+    else:
+        # Running in development
+        return os.path.join(os.path.dirname(__file__), "data")
+
 # Ensure data directory exists (will be created at runtime)
-# For packaged app, data goes to user's AppData; for dev, it's in backend/data
-if getattr(sys, 'frozen', False):
-    # Running as packaged executable
-    DATA_DIR = os.path.join(os.path.expanduser("~"), "AppData", "Local", "AURORA-Local-Agent")
-else:
-    # Running in development
-    DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+DATA_DIR = get_app_data_dir()
 
 os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -82,23 +93,23 @@ memory = MemoryStore(os.path.join(DATA_DIR, "memory.sqlite3"))
 agent = AgentCore(memory=memory, settings=settings)
 
 # System Prompts templates 目录
-# For packaged app, auto-copy system_prompts from bundle to AppData on first run
+# For packaged app, auto-copy system_prompts from bundle to user data dir on first run
 if getattr(sys, 'frozen', False):
     # Running as packaged executable - bundled system_prompts location
     BUNDLED_SYSTEM_PROMPTS = os.path.join(sys._MEIPASS, "system_prompts")
-    # User-accessible system_prompts location (in AppData)
+    # User-accessible system_prompts location (in platform-specific data directory)
     SYSTEM_PROMPTS_DIR = os.path.join(DATA_DIR, "system_prompts")
     
-    # Auto-copy from bundle if AppData doesn't have it yet
+    # Auto-copy from bundle if user data dir doesn't have it yet
     if not os.path.exists(SYSTEM_PROMPTS_DIR):
         try:
             if os.path.exists(BUNDLED_SYSTEM_PROMPTS):
                 shutil.copytree(BUNDLED_SYSTEM_PROMPTS, SYSTEM_PROMPTS_DIR)
-                print(f"[INIT] Copied bundled system prompts to AppData: {SYSTEM_PROMPTS_DIR}", flush=True)
+                print(f"[INIT] Copied bundled system prompts to data directory: {SYSTEM_PROMPTS_DIR}", flush=True)
             else:
                 print(f"[WARN] Bundled system prompts not found: {BUNDLED_SYSTEM_PROMPTS}", flush=True)
         except Exception as e:
-            print(f"[ERROR] Failed to copy system prompts to AppData: {e}", flush=True)
+            print(f"[ERROR] Failed to copy system prompts to data directory: {e}", flush=True)
     
     print(f"[INIT] Running as packaged app, using SYSTEM_PROMPTS_DIR: {SYSTEM_PROMPTS_DIR}", flush=True)
 else:
@@ -218,10 +229,30 @@ memory_service = MemoryPluginService.get_instance(
     user_id="default_user"
 )
 
+# 启动时根据 settings 恢复记忆模式
+try:
+    current_settings = settings.get()
+    saved_plugin_id = current_settings.get("memory_plugin") or "vector_memory"
+    # 仅允许当前面向用户开放的记忆模式
+    if saved_plugin_id not in ["vector_memory"]:
+        saved_plugin_id = "vector_memory"
+    memory_service.switch_plugin(saved_plugin_id)
+    current_settings["memory_plugin"] = saved_plugin_id
+    settings.set(current_settings)
+    print(f"[MEMORY] Restored memory plugin from settings: {saved_plugin_id}", flush=True)
+except Exception as e:
+    print(f"[MEMORY] Failed to restore memory plugin from settings: {e}", flush=True)
+
 class ChatReq(BaseModel):
     user_message: str
     session_id: str | None = None
     user_profile: Optional[Dict[str, Any]] = None  # 用户基本信息
+
+class RegenerateReq(BaseModel):
+    user_message: str
+    history_messages: List[Dict[str, str]] = []
+    user_profile: Optional[Dict[str, Any]] = None
+    session_id: str | None = None
 
 class ChatResp(BaseModel):
     assistant_message: str
@@ -232,19 +263,20 @@ class ChatResp(BaseModel):
     compression_state: Optional[Dict[str, Any]] = None
 
 class SettingsReq(BaseModel):
-    provider: str = "openai_compatible"
+    provider: Optional[str] = None
     base_url: Optional[str] = None
     api_key: Optional[str] = None
     model: Optional[str] = None
-    system_prompt: Optional[str] = ""
-    max_input_tokens: Optional[int] = 2000
-    max_output_tokens: Optional[int] = 800
-    temperature: Optional[float] = 0.7
-    dev_mode: Optional[bool] = False
-    history_strategy: Optional[str] = "compression"
-    compression_threshold: Optional[int] = 1000
-    compression_target: Optional[int] = 200
-    language: Optional[str] = "zh"
+    system_prompt: Optional[str] = None
+    max_input_tokens: Optional[int] = None
+    max_output_tokens: Optional[int] = None
+    temperature: Optional[float] = None
+    dev_mode: Optional[bool] = None
+    history_strategy: Optional[str] = None
+    compression_threshold: Optional[int] = None
+    compression_target: Optional[int] = None
+    language: Optional[str] = None
+    memory_plugin: Optional[str] = None
 
 class ModelUpdateReq(BaseModel):
     model: str
@@ -280,6 +312,8 @@ def set_settings(req: SettingsReq):
         current["model"] = req.model
     if req.system_prompt is not None:
         current["system_prompt"] = req.system_prompt
+    if req.provider is not None:
+        current["provider"] = req.provider
     if req.max_input_tokens is not None:
         current["max_input_tokens"] = req.max_input_tokens
     if req.max_output_tokens is not None:
@@ -296,6 +330,14 @@ def set_settings(req: SettingsReq):
         current["compression_target"] = req.compression_target
     if req.language is not None:
         current["language"] = req.language
+    if req.memory_plugin is not None:
+        target_plugin = req.memory_plugin
+        if target_plugin not in ["vector_memory"]:
+            target_plugin = "vector_memory"
+        switch_result = memory_service.switch_plugin(target_plugin)
+        if not switch_result.get("success"):
+            return {"error": f"Failed to switch memory plugin: {target_plugin}", "status": "error"}
+        current["memory_plugin"] = switch_result.get("active_plugin", target_plugin)
     
     # 验证token限制
     if current["max_input_tokens"] and (current["max_input_tokens"] < 100 or current["max_input_tokens"] > 128000):
@@ -458,7 +500,6 @@ def fetch_openai_models():
             "error": f"Error: {str(e)[:200]}",
             "status": "error"
         }
-    return {"ok": True, "model": req.model}
 
 @app.get("/settings/system-prompt")
 def get_system_prompt():
@@ -678,6 +719,42 @@ def chat(req: ChatReq):
     logger.info(f"Chat response mode: {out['mode']}, memory_cards: {len(out['used_memory_cards'])}")
     return ChatResp(**out)
 
+@app.post("/chat/regenerate", response_model=ChatResp)
+def regenerate_chat(req: RegenerateReq):
+    """基于指定历史上下文重新生成单轮回复（不覆盖当前默认会话历史）"""
+    temp_session_id = f"regen_{int(time.time() * 1000)}"
+    print(f"\n>>> [REGENERATE] Request: {req.user_message[:50]}...", flush=True)
+    print(f">>> [REGENERATE] history_messages={len(req.history_messages)} temp_session={temp_session_id}", flush=True)
+    logger.info(f"Regenerate request: {req.user_message[:50]}... (temp session: {temp_session_id})")
+
+    try:
+        # 使用临时会话，避免污染当前 session 的历史
+        agent.clear_history(temp_session_id)
+
+        # 回填“目标消息之前”的历史上下文
+        for msg in req.history_messages:
+            role = (msg.get("role") or "").strip()
+            content = (msg.get("content") or "").strip()
+            if role not in ["user", "assistant"] or not content:
+                continue
+            agent._add_to_history(temp_session_id, role, content)
+
+        memory_context = memory_service.get_conversation_context(
+            query=req.user_message,
+            user_profile=req.user_profile
+        )
+
+        out = agent.chat(
+            req.user_message,
+            session_id=temp_session_id,
+            memory_context=memory_context
+        )
+        print(f"<<< [REGENERATE] Response ({out['mode']}): {out['assistant_message'][:100]}...\n", flush=True)
+        return ChatResp(**out)
+    finally:
+        # 清理临时会话
+        agent.clear_history(temp_session_id)
+
 class ClearHistoryReq(BaseModel):
     session_id: str = "default"
 
@@ -718,8 +795,19 @@ def get_active_plugin():
 @app.post("/memory/plugins/switch")
 def switch_plugin(req: SwitchPluginRequest):
     """切换记忆插件"""
-    print(f"[MEMORY] Switching to plugin: {req.plugin_id}", flush=True)
-    result = memory_service.switch_plugin(req.plugin_id)
+    target_plugin = req.plugin_id if req.plugin_id in ["vector_memory"] else "vector_memory"
+    print(f"[MEMORY] Switching to plugin: {target_plugin}", flush=True)
+    result = memory_service.switch_plugin(target_plugin)
+
+    # 同步写入 settings，确保下次启动可恢复
+    try:
+        if result.get("success"):
+            current = settings.get()
+            current["memory_plugin"] = result.get("active_plugin", target_plugin)
+            settings.set(current)
+    except Exception as e:
+        print(f"[MEMORY] Failed to persist memory plugin setting: {e}", flush=True)
+
     return result
 
 
@@ -729,6 +817,20 @@ def set_plugin_config(req: PluginConfigRequest):
     print(f"[MEMORY] Setting config for plugin: {req.plugin_id}", flush=True)
     result = memory_service.set_plugin_config(req.plugin_id, req.config)
     return result
+
+
+@app.get("/memory/local-model/status")
+def get_local_model_status():
+    """获取本地小模型状态（local_rerank）"""
+    print("[MEMORY] Getting local model status", flush=True)
+    return memory_service.get_local_model_status()
+
+
+@app.post("/memory/local-model/download")
+def download_local_model(req: LocalModelDownloadRequest = LocalModelDownloadRequest()):
+    """下载本地小模型并切换 local_rerank 到 MiniLM"""
+    print(f"[MEMORY] Download local model, force={req.force_download}", flush=True)
+    return memory_service.download_local_model(force_download=req.force_download)
 
 
 # --- 记忆操作 ---
@@ -993,10 +1095,18 @@ def save_conversation(data: dict):
     conversation_id = data.get("conversation_id", f"engine_{int(time.time())}")
     title = data.get("title", "Untitled Conversation")
     messages = data.get("messages", [])
+    conversation_tree = data.get("conversation_tree")
+    active_path = data.get("active_path")
     
     print(f"[ENGINE_CONV] Saving conversation: {conversation_id}", flush=True)
     
-    success = save_engine_conversation(conversation_id, title, messages)
+    success = save_engine_conversation(
+        conversation_id,
+        title,
+        messages,
+        conversation_tree=conversation_tree if isinstance(conversation_tree, dict) else None,
+        active_path=active_path if isinstance(active_path, list) else None,
+    )
     
     if success:
         return {"ok": True, "conversation_id": conversation_id, "title": title}

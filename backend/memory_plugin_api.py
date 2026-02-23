@@ -13,11 +13,18 @@ from pydantic import BaseModel
 from memory_plugins import MemoryPluginManager
 
 
-# Determine the data directory based on whether we're running packaged or in development
+# Platform-aware data directory
 def get_data_dir():
+    """Get platform-specific app data directory."""
     if getattr(sys, 'frozen', False):
         # Running as packaged executable
-        return os.path.join(os.path.expanduser("~"), "AppData", "Local", "AURORA-Local-Agent")
+        home = os.path.expanduser("~")
+        if sys.platform == "win32":
+            return os.path.join(home, "AppData", "Local", "AURORA-Local-Agent")
+        elif sys.platform == "darwin":
+            return os.path.join(home, "Library", "Application Support", "AURORA-Local-Agent")
+        else:  # linux and others
+            return os.path.join(home, ".local", "share", "AURORA-Local-Agent")
     else:
         # Running in development
         return os.path.join(os.path.dirname(__file__), "data")
@@ -51,6 +58,10 @@ class SwitchPluginRequest(BaseModel):
 class PluginConfigRequest(BaseModel):
     plugin_id: str
     config: Dict[str, Any]
+
+
+class LocalModelDownloadRequest(BaseModel):
+    force_download: bool = False
 
 
 class EvaluateMemoriesRequest(BaseModel):
@@ -126,6 +137,53 @@ class MemoryPluginService:
             "success": success,
             "plugin_id": plugin_id,
             "config": self.manager.get_plugin_config(plugin_id)
+        }
+
+    def get_local_model_status(self) -> Dict[str, Any]:
+        """获取本地小模型状态"""
+        try:
+            plugin = self.manager.get_plugin("local_rerank")
+            if hasattr(plugin, "get_local_model_status"):
+                status = plugin.get_local_model_status()
+            else:
+                status = {
+                    "plugin": "local_rerank",
+                    "error": "local_rerank plugin does not support model status"
+                }
+
+            status["active_plugin"] = self.manager.get_active_plugin_id()
+            return status
+        except Exception as e:
+            return {
+                "plugin": "local_rerank",
+                "active_plugin": self.manager.get_active_plugin_id(),
+                "error": str(e)
+            }
+
+    def download_local_model(self, force_download: bool = False) -> Dict[str, Any]:
+        """下载本地小模型并切换到 MiniLM"""
+        plugin_id = "local_rerank"
+        plugin = self.manager.get_plugin(plugin_id)
+        if not hasattr(plugin, "download_local_model"):
+            return {
+                "success": False,
+                "error": "local_rerank plugin does not support model download"
+            }
+
+        result = plugin.download_local_model(force_download=force_download)
+
+        # 持久化配置，确保重启后仍使用本地模型路径
+        plugin_config = dict(self.manager.get_plugin_config(plugin_id))
+        plugin_config["model_backend"] = "minilm"
+        plugin_config["model_name"] = result.get("model_name") or plugin_config.get("model_name", "all-MiniLM-L6-v2")
+        plugin_config["local_model_path"] = result.get("local_model_path", "")
+        self.manager.set_plugin_config(plugin_id, plugin_config)
+
+        return {
+            "success": True,
+            "plugin": plugin_id,
+            "active_plugin": self.manager.get_active_plugin_id(),
+            "status": self.get_local_model_status(),
         }
     
     # ==================== 记忆操作 ====================
@@ -350,7 +408,21 @@ class MemoryPluginService:
             "user_info": "",
             "core_memories": "",
             "relevant_memories": "",
+            "active_plugin": self.manager.get_active_plugin_id(),
         }
+
+        plugin_memories: List[Dict[str, Any]] = []
+        try:
+            plugin_context = self.get_context_for_conversation(query=query, limit=30)
+            raw_memories = plugin_context.get("memories", []) if isinstance(plugin_context, dict) else []
+            if isinstance(raw_memories, list):
+                plugin_memories = [m for m in raw_memories if isinstance(m, dict)]
+            print(
+                f"[get_conversation_context] Active plugin={result['active_plugin']}, plugin memories={len(plugin_memories)}",
+                flush=True
+            )
+        except Exception as e:
+            print(f"[get_conversation_context] Plugin context failed: {e}", flush=True)
         
         # 1. 用户信息
         if user_profile:
@@ -374,7 +446,7 @@ class MemoryPluginService:
         
         # 2. 核心记忆
         print(f"[get_conversation_context] Getting core memories...", flush=True)
-        core_memories = self.get_core_memories()
+        core_memories = [m for m in plugin_memories if float(m.get("importance", 0)) >= 0.8] if plugin_memories else self.get_core_memories()
         if core_memories:
             core_texts = [f"• {m['content']}" for m in core_memories[:10]]  # 最多10条
             result["core_memories"] = "【核心记忆】\n" + "\n".join(core_texts)
@@ -384,7 +456,7 @@ class MemoryPluginService:
         
         # 3. 相关记忆（基于当前查询）
         print(f"[get_conversation_context] Getting relevant memories...", flush=True)
-        relevant_memories = self.get_relevant_memories(query, limit=30)
+        relevant_memories = [m for m in plugin_memories if float(m.get("importance", 0)) < 0.8] if plugin_memories else self.get_relevant_memories(query, limit=30)
         if relevant_memories:
             relevant_texts = [f"• {m['content']}" for m in relevant_memories]
             result["relevant_memories"] = "【相关记忆】\n" + "\n".join(relevant_texts)

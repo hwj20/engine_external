@@ -27,24 +27,24 @@ logger = logging.getLogger(__name__)
 
 # ==================== Path Configuration ====================
 
-if getattr(sys, 'frozen', False):
-    # Running as packaged executable
-    PERSONAL_INFO_DIR = os.path.join(
-        os.path.expanduser("~"),
-        "AppData", "Local", "AURORA-Local-Agent",
-        "personal_info", "data"
-    )
-    DATA_DIR = os.path.join(
-        os.path.expanduser("~"),
-        "AppData", "Local", "AURORA-Local-Agent"
-    )
-else:
-    # Running in development
-    PERSONAL_INFO_DIR = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)),
-        "personal_info", "data"
-    )
-    DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+def get_app_data_dir() -> str:
+    """Get platform-specific app data directory."""
+    if getattr(sys, 'frozen', False):
+        # Running as packaged executable
+        home = os.path.expanduser("~")
+        if sys.platform == "win32":
+            return os.path.join(home, "AppData", "Local", "AURORA-Local-Agent")
+        elif sys.platform == "darwin":
+            return os.path.join(home, "Library", "Application Support", "AURORA-Local-Agent")
+        else:  # linux and others
+            return os.path.join(home, ".local", "share", "AURORA-Local-Agent")
+    else:
+        # Running in development
+        return os.path.join(os.path.dirname(__file__), "data")
+
+APP_DATA_DIR = get_app_data_dir()
+PERSONAL_INFO_DIR = os.path.join(APP_DATA_DIR, "personal_info", "data")
+DATA_DIR = APP_DATA_DIR
 
 os.makedirs(PERSONAL_INFO_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -90,12 +90,28 @@ class ConversationDetail(BaseModel):
     messages: list[ConversationMessage]
     create_time: Optional[float] = None
     update_time: Optional[float] = None
+    conversation_tree: Optional[Dict[str, Any]] = None
+    active_path: Optional[List[str]] = None
 
 
 # ==================== Internal Helpers ====================
 
 def _count_messages(conv: dict) -> int:
     """Count meaningful text messages in a conversation object."""
+    normalized_tree, normalized_active_path = _normalize_conversation_tree(conv)
+    if isinstance(normalized_tree, dict):
+        nodes = normalized_tree.get('nodes')
+        if isinstance(nodes, dict) and isinstance(normalized_active_path, list) and normalized_active_path:
+            count = 0
+            for node_id in normalized_active_path:
+                node = nodes.get(node_id)
+                if not isinstance(node, dict):
+                    continue
+                if (node.get('content') or '').strip():
+                    count += 1
+            if count > 0:
+                return count
+
     # OpenAI mapping format
     mapping = conv.get('mapping')
     if mapping and isinstance(mapping, dict):
@@ -118,6 +134,33 @@ def _count_messages(conv: dict) -> int:
 def _extract_messages(conv: dict) -> List[ConversationMessage]:
     """Extract ordered messages from a conversation (both OpenAI and simple formats)."""
     messages: List[ConversationMessage] = []
+
+    # ── Preferred: normalized tree with active path (internal + OpenAI mapping) ──
+    normalized_tree, normalized_active_path = _normalize_conversation_tree(conv)
+    if isinstance(normalized_tree, dict):
+        nodes = normalized_tree.get('nodes')
+        if isinstance(nodes, dict) and isinstance(normalized_active_path, list):
+            for node_id in normalized_active_path:
+                node = nodes.get(node_id)
+                if not isinstance(node, dict):
+                    continue
+                content = (node.get('content') or '').strip()
+                if not content:
+                    continue
+                create_time = node.get('create_time')
+                try:
+                    create_time_val = float(create_time) if create_time is not None else None
+                except Exception:
+                    create_time_val = None
+                messages.append(ConversationMessage(
+                    id=node.get('id', node_id),
+                    role=node.get('role', 'unknown'),
+                    content=content,
+                    create_time=create_time_val,
+                ))
+
+            if messages:
+                return messages
 
     # ── Format 1: Simple messages array ──
     if isinstance(conv.get('messages'), list):
@@ -171,6 +214,137 @@ def _extract_messages(conv: dict) -> List[ConversationMessage]:
 
     messages.sort(key=lambda m: m.create_time or 0)
     return messages
+
+
+def _normalize_conversation_tree(conv: dict) -> tuple[Optional[Dict[str, Any]], Optional[List[str]]]:
+    """Normalize conversation into internal tree + active_path, supporting both internal and OpenAI mapping formats."""
+    tree = conv.get('conversation_tree')
+    active_path = conv.get('active_path')
+    if isinstance(tree, dict) and isinstance(tree.get('nodes'), dict):
+        if isinstance(active_path, list) and active_path:
+            return tree, active_path
+        fallback = tree.get('active_path')
+        if isinstance(fallback, list) and fallback:
+            return tree, fallback
+        return tree, []
+
+    mapping = conv.get('mapping')
+    if not isinstance(mapping, dict) or not mapping:
+        return None, None
+
+    nodes: Dict[str, Dict[str, Any]] = {}
+    fallback_path: List[str] = []
+
+    def _extract_text(msg_data: dict) -> str:
+        content = msg_data.get('content') if isinstance(msg_data, dict) else None
+        if not isinstance(content, dict) or content.get('content_type') != 'text':
+            return ''
+        parts = content.get('parts', [])
+        if not isinstance(parts, list):
+            return ''
+        text = '\n'.join(str(p) for p in parts if p)
+        return text.strip()
+
+    # Build tree nodes from mapping
+    for node_id, node in mapping.items():
+        if not isinstance(node, dict):
+            continue
+        msg_data = node.get('message')
+        if not isinstance(msg_data, dict):
+            continue
+        text = _extract_text(msg_data)
+        if not text:
+            continue
+
+        role = msg_data.get('author', {}).get('role', 'unknown')
+        create_time = msg_data.get('create_time')
+        try:
+            create_time_val = float(create_time) if create_time is not None else None
+        except Exception:
+            create_time_val = None
+
+        parent_id = node.get('parent')
+        if parent_id not in mapping:
+            parent_id = None
+
+        children = node.get('children', [])
+        if not isinstance(children, list):
+            children = []
+
+        nodes[node_id] = {
+            'id': msg_data.get('id', node_id),
+            'role': role,
+            'content': text,
+            'parent_id': parent_id,
+            'children': [child_id for child_id in children if child_id in mapping],
+            'create_time': create_time_val,
+        }
+
+    # Remove non-message parents from parent links by climbing to nearest message ancestor
+    for node_id, node in list(nodes.items()):
+        parent_id = node.get('parent_id')
+        guard = set()
+        while parent_id and parent_id not in nodes and parent_id in mapping and parent_id not in guard:
+            guard.add(parent_id)
+            parent_id = mapping[parent_id].get('parent')
+        if parent_id not in nodes:
+            parent_id = None
+        node['parent_id'] = parent_id
+
+    # Rebuild children from normalized parent links
+    for node in nodes.values():
+        node['children'] = []
+    for node_id, node in nodes.items():
+        parent_id = node.get('parent_id')
+        if parent_id and parent_id in nodes:
+            nodes[parent_id]['children'].append(node_id)
+
+    # Build active path from current_node first
+    current_node_id = conv.get('current_node')
+    active_path: List[str] = []
+    if isinstance(current_node_id, str) and current_node_id in mapping:
+        cursor = current_node_id
+        guard = set()
+        temp_path = []
+        while cursor and cursor in mapping and cursor not in guard:
+            guard.add(cursor)
+            if cursor in nodes:
+                temp_path.append(cursor)
+            cursor = mapping[cursor].get('parent')
+        active_path = list(reversed(temp_path))
+
+    # Fallback: pick the deepest latest leaf path
+    if not active_path and nodes:
+        roots = [nid for nid, n in nodes.items() if not n.get('parent_id')]
+        visited = set()
+
+        def _walk(node_id: str):
+            if node_id in visited or node_id not in nodes:
+                return
+            visited.add(node_id)
+            fallback_path.append(node_id)
+            children = nodes[node_id].get('children', [])
+            if children:
+                # Prefer child with latest create_time
+                children_sorted = sorted(
+                    children,
+                    key=lambda cid: (nodes.get(cid, {}).get('create_time') or 0),
+                    reverse=True,
+                )
+                _walk(children_sorted[0])
+
+        root_sorted = sorted(roots, key=lambda rid: (nodes.get(rid, {}).get('create_time') or 0))
+        if root_sorted:
+            _walk(root_sorted[0])
+        active_path = fallback_path
+
+    root_id = active_path[0] if active_path else None
+    normalized_tree = {
+        'version': '1.0',
+        'root_id': root_id,
+        'nodes': nodes,
+    }
+    return normalized_tree, active_path
 
 
 def _find_conversations_json(base_dir: str) -> Optional[str]:
@@ -397,12 +571,15 @@ def get_conversation_detail(conversation_id: str) -> Optional[ConversationDetail
             try:
                 with open(conv_file, 'r', encoding='utf-8') as f:
                     conv = json.load(f)
+                normalized_tree, normalized_active_path = _normalize_conversation_tree(conv)
                 return ConversationDetail(
                     conversation_id=conversation_id,
                     title=conv.get('title', 'Untitled'),
                     messages=_extract_messages(conv),
                     create_time=float(conv['create_time']) if conv.get('create_time') else None,
                     update_time=float(conv['update_time']) if conv.get('update_time') else None,
+                    conversation_tree=normalized_tree,
+                    active_path=normalized_active_path,
                 )
             except Exception as e:
                 logger.error(f"Error loading split conversation {conversation_id}: {e}")
@@ -433,7 +610,13 @@ def get_engine_conversation_detail(conversation_id: str) -> Optional[Conversatio
     return get_conversation_detail(conversation_id)
 
 
-def save_engine_conversation(conversation_id: str, title: str, messages: List[dict]) -> bool:
+def save_engine_conversation(
+    conversation_id: str,
+    title: str,
+    messages: List[dict],
+    conversation_tree: Optional[Dict[str, Any]] = None,
+    active_path: Optional[List[str]] = None,
+) -> bool:
     """Save or update a conversation (individual file + index)."""
     try:
         _ensure_split_dirs()
@@ -447,6 +630,10 @@ def save_engine_conversation(conversation_id: str, title: str, messages: List[di
             "messages": messages,
             "update_time": now,
         }
+        if conversation_tree is not None:
+            conv_data["conversation_tree"] = conversation_tree
+        if active_path is not None:
+            conv_data["active_path"] = active_path
 
         # Load current index (or create empty)
         index = _load_index() or _empty_index()
@@ -470,26 +657,40 @@ def save_engine_conversation(conversation_id: str, title: str, messages: List[di
                     old["title"] = title
                     old["messages"] = messages
                     old["update_time"] = now
-                    # If switching from mapping→messages, drop the mapping key
-                    if "mapping" in old and messages:
-                        del old["mapping"]
+                    if conversation_tree is not None:
+                        old["conversation_tree"] = conversation_tree
+                    if active_path is not None:
+                        old["active_path"] = active_path
                     conv_data = old
                 except Exception:
                     pass
 
+            message_count = len(messages)
+            if isinstance(conversation_tree, dict) and isinstance(active_path, list):
+                nodes = conversation_tree.get("nodes", {})
+                if isinstance(nodes, dict):
+                    message_count = sum(1 for node_id in active_path if node_id in nodes)
+
             existing["title"] = title
             existing["update_time"] = now
-            existing["message_count"] = len(messages)
+            existing["message_count"] = message_count
             existing["dirty"] = True
         else:
             conv_data["create_time"] = now
             conv_data["origin"] = "engine"
+
+            message_count = len(messages)
+            if isinstance(conversation_tree, dict) and isinstance(active_path, list):
+                nodes = conversation_tree.get("nodes", {})
+                if isinstance(nodes, dict):
+                    message_count = sum(1 for node_id in active_path if node_id in nodes)
+
             index["conversations"].insert(0, {
                 "id": conversation_id,
                 "title": title,
                 "create_time": now,
                 "update_time": now,
-                "message_count": len(messages),
+                "message_count": message_count,
                 "dirty": True,
                 "origin": "engine",
             })
@@ -715,12 +916,16 @@ def _get_conversation_detail_legacy(conversation_id: str) -> Optional[Conversati
         if not conv:
             return None
 
+        normalized_tree, normalized_active_path = _normalize_conversation_tree(conv)
+
         return ConversationDetail(
             conversation_id=conversation_id,
             title=conv.get('title', 'Untitled'),
             messages=_extract_messages(conv),
             create_time=float(conv['create_time']) if conv.get('create_time') else None,
             update_time=float(conv['update_time']) if conv.get('update_time') else None,
+            conversation_tree=normalized_tree,
+            active_path=normalized_active_path,
         )
 
     except Exception as e:

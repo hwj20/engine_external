@@ -1,6 +1,6 @@
 {
     "name": "engine-external",
-    "version": "1.0.5",
+    "version": "1.1.0",
     "private": true,
     "main": "electron/main.js",
     "description": "AURORA Local Agent - A local AI assistant with memory capabilities",
@@ -12,6 +12,7 @@
     "scripts": {
         "dev": "node electron/dev.js",
         "start": "electron .",
+        "prepare:model": "python ../scripts/download_local_rerank_model.py",
         "dist": "electron-builder",
         "build": "electron-builder",
         "build:win": "electron-builder --win",
@@ -49,6 +50,13 @@
             {
                 "from": "resources/bin/",
                 "to": "bin",
+                "filter": [
+                    "**/*"
+                ]
+            },
+            {
+                "from": "resources/models/",
+                "to": "models",
                 "filter": [
                     "**/*"
                 ]

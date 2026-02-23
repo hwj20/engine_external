@@ -8,6 +8,7 @@ from .manager import MemoryPluginManager
 from .temporal_tree_plugin import TemporalTreePlugin
 from .vector_plugin import VectorMemoryPlugin
 from .simple_sqlite_plugin import SimpleSQLitePlugin
+from .local_rerank_plugin import LocalRerankMemoryPlugin
 
 __all__ = [
     "MemoryPluginBase",
@@ -18,4 +19,5 @@ __all__ = [
     "TemporalTreePlugin",
     "VectorMemoryPlugin",
     "SimpleSQLitePlugin",
+    "LocalRerankMemoryPlugin",
 ]

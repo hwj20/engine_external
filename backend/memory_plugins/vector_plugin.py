@@ -68,7 +68,7 @@ class VectorMemoryPlugin(MemoryPluginBase):
     
     def __init__(self, user_id: str, storage_path: str, config: Dict[str, Any] = None):
         super().__init__(user_id, storage_path, config)
-        self.db_path = os.path.join(storage_path, f"{user_id}_vector_memory.db")
+        self.db_path = self.config.get("shared_db_file") or os.path.join(storage_path, f"{user_id}_vector_memory.db")
         self.conn = None
         self._embedder = None
     

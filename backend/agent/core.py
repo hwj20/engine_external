@@ -15,10 +15,12 @@ DEFAULT_PERSONA = """你是一个终身陪伴型AI助手。风格：亲密、聪
 - 记忆要克制：只把长期稳定且对未来有用的信息写入长期记忆。
 """
 
-# 最大保留的历史消息轮数（已弃用，改为基于token的动态计算）
-MAX_HISTORY_TURNS = 10
-# 对话历史的token预算（用于滑动窗口）
-HISTORY_TOKEN_BUDGET = 1200  # 约300条消息的容量（中文平均6字/消息）
+# 历史兜底预算（当 settings 不可用时）
+DEFAULT_HISTORY_TOKEN_BUDGET = 1200
+# 历史最低预算，避免极小配置导致历史完全不可用
+MIN_HISTORY_TOKEN_BUDGET = 300
+# 会话历史内存上限（防止服务长时间运行导致内存无限增长）
+MAX_HISTORY_MESSAGES = 2000
 # 压缩时保留的对话轮数（保持最近的上下文，避免模型漂移）
 COMPRESSION_CONTEXT_RETENTION_TURNS = 2  # 保留最后2轮对话（每轮=user+assistant）
 
@@ -59,11 +61,26 @@ class AgentCore:
         print(f"[AgentCore] Memory cards prepared: {len(cards)} cards", flush=True)
         return cards
 
-    def _get_conversation_history(self, session_id: str, max_turns: int = 5) -> List[Dict[str, str]]:
+    def _get_history_token_budget(self) -> int:
+        """根据 settings 动态获取滑动窗口预算。"""
+        try:
+            st = self.settings.get()
+            configured = int(st.get("max_input_tokens", DEFAULT_HISTORY_TOKEN_BUDGET) or DEFAULT_HISTORY_TOKEN_BUDGET)
+            # 预留少量空间给分隔文本，尽量让历史贴近用户配置上限
+            budget = configured - 200
+            if budget < MIN_HISTORY_TOKEN_BUDGET:
+                budget = MIN_HISTORY_TOKEN_BUDGET
+            return budget
+        except Exception:
+            return DEFAULT_HISTORY_TOKEN_BUDGET
+
+    def _get_conversation_history(self, session_id: str, history_token_budget: Optional[int] = None) -> List[Dict[str, str]]:
         """获取最近的对话历史（基于token预算的滑动窗口）"""
         history = self.conversation_history.get(session_id, [])
         if not history:
             return []
+
+        budget = history_token_budget if history_token_budget is not None else self._get_history_token_budget()
         
         # 基于token预算动态选择历史消息
         # 从最近的消息开始，向前累加，直到达到token预算
@@ -73,7 +90,7 @@ class AgentCore:
         # 从后向前遍历（最近的消息在后）
         for msg in reversed(history):
             msg_tokens = approx_tokens(msg["content"])
-            if total_tokens + msg_tokens > HISTORY_TOKEN_BUDGET:
+            if total_tokens + msg_tokens > budget:
                 break
             selected.insert(0, msg)  # 插入到前面以保持顺序
             total_tokens += msg_tokens
@@ -96,7 +113,8 @@ class AgentCore:
 
     def _get_sliding_window_history_text(self, session_id: str) -> str:
         """滑动窗口策略：返回最近的对话历史文本"""
-        history = self._get_conversation_history(session_id)
+        history_budget = self._get_history_token_budget()
+        history = self._get_conversation_history(session_id, history_token_budget=history_budget)
         if not history:
             return ""
         lines = []
@@ -226,9 +244,9 @@ class AgentCore:
     def _add_to_history(self, session_id: str, role: str, content: str) -> None:
         """添加消息到会话历史"""
         self.conversation_history[session_id].append({"role": role, "content": content})
-        # 限制历史记录长度
-        if len(self.conversation_history[session_id]) > MAX_HISTORY_TURNS * 2:
-            self.conversation_history[session_id] = self.conversation_history[session_id][-(MAX_HISTORY_TURNS * 2):]
+        # 仅做防爆内存保护，不限制正常滑动窗口容量
+        if len(self.conversation_history[session_id]) > MAX_HISTORY_MESSAGES:
+            self.conversation_history[session_id] = self.conversation_history[session_id][-MAX_HISTORY_MESSAGES:]
 
     def clear_history(self, session_id: str) -> None:
         """清空会话历史（包括压缩摘要）"""
@@ -350,7 +368,7 @@ class AgentCore:
 
         # 对话历史（放最前，利用 prefix caching）
         if history_text:
-            user_sections.append("对话历史:\n" + history_text)
+            user_sections.append("history:\n" + history_text)
 
         # 动态记忆（relevant_memories，每次可能不同）
         dynamic_memory_parts: List[str] = []
@@ -360,10 +378,10 @@ class AgentCore:
         if not memory_context and pack["memory_cards"]:
             dynamic_memory_parts.extend(pack["memory_cards"])
         if dynamic_memory_parts:
-            user_sections.append("相关记忆:\n" + "\n".join(dynamic_memory_parts))
+            user_sections.append("memory:\n" + "\n".join(dynamic_memory_parts))
 
         # 当前用户输入（放最后）
-        user_sections.append(pack["user_input"])
+        user_sections.append("input:" + pack["user_input"])
 
         user_content = "\n\n".join(user_sections)
 
@@ -375,9 +393,6 @@ class AgentCore:
 
         # 从设置中获取max_output_tokens，如果未设置则使用默认值
         max_output_tokens = st.get("max_output_tokens", 800)
-        if mode == "chat":
-            # 对于chat模式，使用较小的输出限制，但不小于默认值
-            max_output_tokens = min(max_output_tokens, 400)
         
         # 从设置中获取temperature
         temperature = st.get("temperature", 0.7)
