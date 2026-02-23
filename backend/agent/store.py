@@ -34,7 +34,8 @@ class SettingsStore:
                 "compression_threshold": 1000,
                 "compression_target": 200,
                 "language": "zh",
-                "memory_plugin": "vector_memory"
+                "memory_plugin": "vector_memory",
+                "dynamic_memory_top_k": 7
             })
         else:
             print(f"[SettingsStore] Loading existing settings from {path}", flush=True)
@@ -58,6 +59,8 @@ class SettingsStore:
                 existing["language"] = "zh"
             if "memory_plugin" not in existing:
                 existing["memory_plugin"] = "vector_memory"
+            if "dynamic_memory_top_k" not in existing:
+                existing["dynamic_memory_top_k"] = 7
             self.set(existing)
 
     def set(self, data: Dict[str, Any]) -> None:

@@ -249,6 +249,9 @@
           <label style="margin-top:10px;" data-i18n="settings.max_output_tokens">Max Output Tokens (response limit)</label>
           <input id="max_output_tokens" type="number" placeholder="800" min="100" max="32000" />
 
+          <label style="margin-top:10px;" data-i18n="settings.dynamic_memory_top_k">Dynamic Memory Top-K (1-50)</label>
+          <input id="dynamic_memory_top_k" type="number" placeholder="7" min="1" max="50" />
+
           <label style="margin-top:10px;" data-i18n="settings.temperature">Temperature (0.0 = deterministic, 1.0 = creative)</label>
           <input id="temperature" type="number" placeholder="0.7" min="0" max="2" step="0.1" />
 
@@ -805,15 +808,61 @@
       .filter(Boolean);
   }
 
-  async function rebuildChatFromActivePath() {
+  async function rebuildChatFromActivePath(renderOptions = {}) {
     chatlog.innerHTML = '';
     messageIndex = 0;
     messageMap.clear();
 
     const pathMessages = getMessagesFromActivePath();
     for (const msg of pathMessages) {
-      await addBubble(msg.content, msg.role, null, { treeNodeId: msg.treeNodeId });
+      const shouldTypewriter = !!(
+        renderOptions.typewriterNodeId
+        && msg.treeNodeId === renderOptions.typewriterNodeId
+        && msg.role === 'assistant'
+      );
+      await addBubble(msg.content, msg.role, null, {
+        treeNodeId: msg.treeNodeId,
+        typewriter: shouldTypewriter,
+      });
     }
+  }
+
+  async function regenerateAssistantFromUserNode(sourceUserNodeId, options = {}) {
+    ensureConversationTreeInitialized();
+
+    const nodes = conversationTreeState?.nodes || {};
+    const sourceUserNode = sourceUserNodeId ? nodes[sourceUserNodeId] : null;
+    if (!sourceUserNode || sourceUserNode.role !== 'user') {
+      throw new Error('no preceding user message');
+    }
+
+    const sourceUserMessage = (sourceUserNode.content || '').trim();
+    if (!sourceUserMessage) {
+      throw new Error('empty source message');
+    }
+
+    const sourcePath = getPathToNode(sourceUserNodeId);
+    const historyMessages = sourcePath
+      .slice(0, -1)
+      .map((nodeId) => nodes[nodeId])
+      .filter((node) => node && node.content)
+      .map((node) => ({ role: node.role, content: node.content }));
+
+    const out = await api('/chat/regenerate', 'POST', {
+      user_message: sourceUserMessage,
+      history_messages: historyMessages,
+      user_profile: getUserProfile(),
+      session_id: 'default'
+    });
+
+    const newAssistantNodeId = appendTreeNode('assistant', out.assistant_message, sourceUserNodeId);
+    await rebuildChatFromActivePath({ typewriterNodeId: newAssistantNodeId });
+
+    if (currentLoadedConversation) {
+      await saveCurrentConversation();
+    }
+
+    return out;
   }
 
   function loadTreeStateFromConversation(conversationData) {
@@ -1072,6 +1121,13 @@
       if (currentLoadedConversation) {
         await saveCurrentConversation();
       }
+
+      // If user message is edited, regenerate assistant reply from this turn
+      if (msgData.role === 'user' && msgData.treeNodeId) {
+        meta.textContent = 'Regenerating reply after edit...';
+        await regenerateAssistantFromUserNode(msgData.treeNodeId);
+        meta.textContent = 'Reply regenerated from edited message';
+      }
       
       console.log('[DEBUG] Message edited and saved:', messageId);
     } catch (e) {
@@ -1170,36 +1226,11 @@
       return;
     }
 
-    const sourceUserMessage = (sourceUserNode.content || '').trim();
-    if (!sourceUserMessage) {
-      meta.textContent = 'Regenerate failed: empty source message';
-      return;
-    }
-
-    const sourcePath = getPathToNode(sourceUserNodeId);
-    const historyMessages = sourcePath
-      .slice(0, -1)
-      .map((nodeId) => nodes[nodeId])
-      .filter((node) => node && node.content)
-      .map((node) => ({ role: node.role, content: node.content }));
-
     meta.textContent = 'Regenerating from selected turn...';
     try {
-      const out = await api('/chat/regenerate', 'POST', {
-        user_message: sourceUserMessage,
-        history_messages: historyMessages,
-        user_profile: getUserProfile(),
-        session_id: 'default'
-      });
-
-      appendTreeNode('assistant', out.assistant_message, sourceUserNodeId);
-      await rebuildChatFromActivePath();
+      await regenerateAssistantFromUserNode(sourceUserNodeId);
 
       meta.textContent = 'Regenerated from selected turn';
-
-      if (currentLoadedConversation) {
-        await saveCurrentConversation();
-      }
     } catch (e) {
       meta.textContent = 'Regenerate failed: ' + e.message;
     }
@@ -1359,6 +1390,7 @@
     const model = getSelectedModel();
     const max_input_tokens = parseInt(document.getElementById("max_input_tokens").value) || 2000;
     const max_output_tokens = parseInt(document.getElementById("max_output_tokens").value) || 800;
+    const dynamic_memory_top_k = parseInt(document.getElementById("dynamic_memory_top_k").value) || 7;
     const temperature = parseFloat(document.getElementById("temperature").value) || 0.7;
     const dev_mode = document.getElementById("dev_mode").checked;
     const history_strategy = "sliding_window";
@@ -1373,6 +1405,7 @@
       model,
       max_input_tokens,
       max_output_tokens,
+      dynamic_memory_top_k,
       temperature,
       dev_mode,
       history_strategy,
@@ -1390,6 +1423,9 @@
     }
     if (updates.max_output_tokens < 100 || updates.max_output_tokens > 32000) {
       return "Max Output Tokens must be between 100 and 32000";
+    }
+    if (updates.dynamic_memory_top_k < 1 || updates.dynamic_memory_top_k > 50) {
+      return "Dynamic Memory Top-K must be between 1 and 50";
     }
     if (updates.temperature < 0 || updates.temperature > 2) {
       return "Temperature must be between 0 and 2";
@@ -1434,6 +1470,7 @@
       "model_custom",
       "max_input_tokens",
       "max_output_tokens",
+      "dynamic_memory_top_k",
       "temperature",
       "compression_threshold",
       "compression_target"
@@ -1526,6 +1563,7 @@
       // Load token limits
       document.getElementById("max_input_tokens").value = s.max_input_tokens || "2000";
       document.getElementById("max_output_tokens").value = s.max_output_tokens || "800";
+      document.getElementById("dynamic_memory_top_k").value = s.dynamic_memory_top_k || "7";
       
       // Load temperature
       document.getElementById("temperature").value = s.temperature !== undefined ? s.temperature : "0.7";
@@ -1561,6 +1599,7 @@
         model: s.model || "",
         max_input_tokens: s.max_input_tokens || 2000,
         max_output_tokens: s.max_output_tokens || 800,
+        dynamic_memory_top_k: s.dynamic_memory_top_k || 7,
         temperature: s.temperature !== undefined ? s.temperature : 0.7,
         dev_mode: s.dev_mode || false,
         history_strategy: "sliding_window",

@@ -478,6 +478,7 @@ class SettingsReq(BaseModel):
     compression_target: Optional[int] = None
     language: Optional[str] = None
     memory_plugin: Optional[str] = None
+    dynamic_memory_top_k: Optional[int] = None
 
 class ModelUpdateReq(BaseModel):
     model: str
@@ -561,12 +562,17 @@ def set_settings(req: SettingsReq):
         if not switch_result.get("success"):
             return {"error": f"Failed to switch memory plugin: {target_plugin}", "status": "error"}
         current["memory_plugin"] = switch_result.get("active_plugin", target_plugin)
+    if req.dynamic_memory_top_k is not None:
+        current["dynamic_memory_top_k"] = req.dynamic_memory_top_k
     
     # 验证token限制
     if current["max_input_tokens"] and (current["max_input_tokens"] < 100 or current["max_input_tokens"] > 128000):
         return {"error": "max_input_tokens must be between 100 and 128000", "status": "error"}
     if current["max_output_tokens"] and (current["max_output_tokens"] < 100 or current["max_output_tokens"] > 32000):
         return {"error": "max_output_tokens must be between 100 and 32000", "status": "error"}
+    if current.get("dynamic_memory_top_k") is not None:
+        if current["dynamic_memory_top_k"] < 1 or current["dynamic_memory_top_k"] > 50:
+            return {"error": "dynamic_memory_top_k must be between 1 and 50", "status": "error"}
     
     settings.set(current)
     print("[SETTINGS] Settings saved successfully", flush=True)
@@ -927,9 +933,12 @@ def chat(req: ChatReq):
     
     # 获取记忆上下文
     print(f">>> [CHAT] Calling get_conversation_context with query='{req.user_message}'", flush=True)
+    current_settings = settings.get()
+    dynamic_top_k = int(current_settings.get("dynamic_memory_top_k", 7) or 7)
     memory_context = memory_service.get_conversation_context(
         query=req.user_message,
-        user_profile=req.user_profile
+        user_profile=req.user_profile,
+        dynamic_memory_top_k=dynamic_top_k,
     )
     print(f">>> [CHAT] Got memory_context: {memory_context}", flush=True)
     
@@ -962,9 +971,12 @@ def regenerate_chat(req: RegenerateReq):
                 continue
             agent._add_to_history(temp_session_id, role, content)
 
+        current_settings = settings.get()
+        dynamic_top_k = int(current_settings.get("dynamic_memory_top_k", 7) or 7)
         memory_context = memory_service.get_conversation_context(
             query=req.user_message,
-            user_profile=req.user_profile
+            user_profile=req.user_profile,
+            dynamic_memory_top_k=dynamic_top_k,
         )
 
         out = agent.chat(

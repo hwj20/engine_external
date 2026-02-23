@@ -344,7 +344,7 @@ class AgentCore:
         from datetime import datetime
         date_text = f"当前日期: {datetime.now().strftime('%Y-%m-%d %A')}"
 
-        system_sections = [persona_part, pack["state"]]
+        system_sections = [persona_part]
         if core_memory_text:
             system_sections.append("核心记忆:\n" + core_memory_text)
         system_sections.append(date_text)

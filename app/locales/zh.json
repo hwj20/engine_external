@@ -32,6 +32,8 @@
     "custom_model_placeholder": "输入自定义模型名称",
     "refresh_models": "刷新模型",
     "max_output_tokens": "最大输出 Token 数（响应限制）",
+    "dynamic_memory_top_k": "动态记忆 Top-K（1-50）",
+    "dynamic_memory_top_k_desc": "每次聊天中包含的最相关记忆数量（用于上下文限制）",
     "temperature": "温度（0.0 = 确定性，1.0 = 创意性）",
     "dev_mode": "开发者模式（显示 Token 使用情况）",
     "dev_mode_label": "开发者模式（显示 Token 使用情况）",

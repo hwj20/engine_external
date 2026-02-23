@@ -13,6 +13,9 @@ from pydantic import BaseModel
 from memory_plugins import MemoryPluginManager
 
 
+DEFAULT_DYNAMIC_MEMORY_TOP_K = 7
+
+
 # Platform-aware data directory
 def get_data_dir():
     """Get platform-specific app data directory."""
@@ -255,7 +258,7 @@ class MemoryPluginService:
         print(f"[get_core_memories] Filtered {len(core_memories)} core memories (importance >= {min_importance}) from {len(all_memories)} total", flush=True)
         return core_memories
     
-    def get_relevant_memories(self, query: str, limit: int = 30) -> List[Dict[str, Any]]:
+    def get_relevant_memories(self, query: str, limit: int = DEFAULT_DYNAMIC_MEMORY_TOP_K) -> List[Dict[str, Any]]:
         """
         根据查询获取相关记忆（向量相似度排序）
         用于对话上下文的记忆检索
@@ -263,7 +266,7 @@ class MemoryPluginService:
         使用关键词向量相似度（Jaccard相似度）计算：
         1. 提取query的关键词
         2. 与所有记忆的关键词计算相似度
-        3. 按相似度排序，返回top-5
+        3. 按相似度排序，返回 top-k（默认7条）
         """
         print(f"\n[get_relevant_memories] ========== START ==========", flush=True)
         print(f"[get_relevant_memories] Query: '{query}', limit={limit}", flush=True)
@@ -332,9 +335,9 @@ class MemoryPluginService:
         relevant = [item['memory'] for item in scored_memories if item['similarity'] > 0]
         
         # 打印调试信息
-        print(f"\n[get_relevant_memories] After sorting by final_score (top 30):", flush=True)
+        print(f"\n[get_relevant_memories] After sorting by final_score (top {limit}):", flush=True)
         print(f"  Total memories with similarity > 0: {len(relevant)}", flush=True)
-        for i, item in enumerate(scored_memories[:30]):
+        for i, item in enumerate(scored_memories[:limit]):
             print(f"  Rank {i+1}: score={item['final_score']:.3f}, sim={item['similarity']:.3f}, imp={item['memory'].get('importance', 0):.2f}, content={item['memory'].get('content', '')[:40]}...", flush=True)
         
         result = relevant[:limit]
@@ -384,7 +387,12 @@ class MemoryPluginService:
         
         return intersection / union if union > 0 else 0.0
     
-    def get_conversation_context(self, query: str, user_profile: Dict[str, Any] = None) -> Dict[str, Any]:
+    def get_conversation_context(
+        self,
+        query: str,
+        user_profile: Dict[str, Any] = None,
+        dynamic_memory_top_k: Optional[int] = None,
+    ) -> Dict[str, Any]:
         """
         获取完整的对话上下文
         返回格式化好的上下文信息，用于构建 LLM 消息
@@ -403,6 +411,12 @@ class MemoryPluginService:
         print(f"\n[get_conversation_context] ========== START ==========", flush=True)
         print(f"[get_conversation_context] Query: '{query}'", flush=True)
         print(f"[get_conversation_context] User profile: {user_profile}", flush=True)
+        dynamic_limit = (
+            dynamic_memory_top_k
+            if isinstance(dynamic_memory_top_k, int) and dynamic_memory_top_k > 0
+            else DEFAULT_DYNAMIC_MEMORY_TOP_K
+        )
+        print(f"[get_conversation_context] dynamic_memory_top_k: {dynamic_limit}", flush=True)
         
         result = {
             "user_info": "",
@@ -413,7 +427,7 @@ class MemoryPluginService:
 
         plugin_memories: List[Dict[str, Any]] = []
         try:
-            plugin_context = self.get_context_for_conversation(query=query, limit=30)
+            plugin_context = self.get_context_for_conversation(query=query, limit=dynamic_limit)
             raw_memories = plugin_context.get("memories", []) if isinstance(plugin_context, dict) else []
             if isinstance(raw_memories, list):
                 plugin_memories = [m for m in raw_memories if isinstance(m, dict)]
@@ -456,7 +470,7 @@ class MemoryPluginService:
         
         # 3. 相关记忆（基于当前查询）
         print(f"[get_conversation_context] Getting relevant memories...", flush=True)
-        relevant_memories = [m for m in plugin_memories if float(m.get("importance", 0)) < 0.8] if plugin_memories else self.get_relevant_memories(query, limit=30)
+        relevant_memories = [m for m in plugin_memories if float(m.get("importance", 0)) < 0.8][:dynamic_limit] if plugin_memories else self.get_relevant_memories(query, limit=dynamic_limit)
         if relevant_memories:
             relevant_texts = [f"• {m['content']}" for m in relevant_memories]
             result["relevant_memories"] = "【相关记忆】\n" + "\n".join(relevant_texts)

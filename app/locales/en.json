@@ -32,6 +32,8 @@
     "custom_model_placeholder": "Enter custom model name",
     "refresh_models": "Refresh Models",
     "max_output_tokens": "Max Output Tokens (response limit)",
+    "dynamic_memory_top_k": "Dynamic Memory Top-K (1-50)",
+    "dynamic_memory_top_k_desc": "Number of most relevant memories to include in each chat (for context limit)",
     "temperature": "Temperature (0.0 = deterministic, 1.0 = creative)",
     "dev_mode": "Developer Mode (show token usage)",
     "dev_mode_label": "Developer Mode (show token usage)",
