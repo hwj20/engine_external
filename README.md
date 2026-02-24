@@ -79,24 +79,7 @@
 * 所有记忆都还在。
 * **数据完全属于你**，永不丢失。
 
----
 
-### 🧠 本地小模型（MiniLM）下载与打包
-
-`local_rerank` 默认会在模型不可用时降级到 `hash_fallback`，所以即使没下载模型也能返回记忆。
-
-如果你要给最终用户发布“内置本地模型”的版本：
-
-1. 先安装后端依赖（确保有 `sentence-transformers` 和 `huggingface-hub`）。
-2. 在项目根目录执行：
-	- `python scripts/download_local_rerank_model.py`
-	- 模型会下载到 `app/resources/models/sentence-transformers/all-MiniLM-L6-v2`
-3. 在 `app` 目录打包：
-	- `npm run build:win`（或 `npm run build`）
-
-打包时会把 `app/resources/models` 复制到安装包资源目录，用户安装后无需再手动下载。
-
----
 
 ### ❓ FAQ
 
